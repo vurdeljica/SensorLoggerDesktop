@@ -179,14 +179,19 @@ function getTableRowsCount(name) {
 }
 
 function getQueryRowCount(query) {
+    console.log("getQueryRowCount")
+    console.log(query)
     if (query === lastCachedQueryCount.select) {
         return lastCachedQueryCount.count;
     }
 
     var queryReplaced = query.replace(SQL_SELECT_REGEX, "SELECT COUNT(*) AS count_sv FROM ");
 
+    console.log(queryReplaced)
+
     if (queryReplaced !== query) {
         queryReplaced = queryReplaced.replace(SQL_LIMIT_REGEX, "");
+        console.log(queryReplaced)
         var sel = db.prepare(queryReplaced);
         if (sel.step()) {
             var count = sel.getAsObject().count_sv;
@@ -204,15 +209,12 @@ function getQueryRowCount(query) {
 }
 
 function getTableColumnTypes(tableName) {
-    var result = [];
+    var result = new Object();
     var sel = db.prepare("PRAGMA table_info('" + tableName + "')");
 
     while (sel.step()) {
         var obj = sel.getAsObject();
         result[obj.name] = obj.type;
-        /*if (obj.notnull === 1) {
-            result[obj.name] += " NOTNULL";
-        }*/
     }
 
     return result;
@@ -377,22 +379,35 @@ function htmlEncode(value){
   return $('<div/>').text(value).html();
 }
 
+function showTableData() {
+    var dataBox = $("#data");
+    errorBox.hide();
+    dataBox.show();
+}
+
+function clearTableData() {
+    var dataBox = $("#data");
+    var thead = dataBox.find("thead").find("tr");
+    var tbody = dataBox.find("tbody");
+    thead.empty();
+    tbody.empty();
+}
+
 function renderQuery(query) {
     var dataBox = $("#data");
     var thead = dataBox.find("thead").find("tr");
     var tbody = dataBox.find("tbody");
 
-    thead.empty();
-    tbody.empty();
-    errorBox.hide();
-    dataBox.show();
+    clearTableData();
+    showTableData();
 
-    var columnTypes = [];
     var tableName = getTableNameFromQuery(query);
-    if (tableName != null) {
-        columnTypes = getTableColumnTypes(tableName);
+    if (tableName == null) {
+        return;
     }
-
+    
+    columnTypes = getTableColumnTypes(tableName);
+    
     var sel;
     try {
         sel = db.prepare(query);
@@ -401,17 +416,12 @@ function renderQuery(query) {
         return;
     }
 
-    var addedColums = false;
-    while (sel.step()) {
-        if (!addedColums) {
-            addedColums = true;
-            var columnNames = sel.getColumnNames();
-            for (var i = 0; i < columnNames.length; i++) {
-                var type = columnTypes[columnNames[i]];
-                thead.append('<th><span data-toggle="tooltip" data-placement="top" title="' + type + '">' + columnNames[i] + "</span></th>");
-            }
-        }
+    for (var columnName in columnTypes) {
+        var columnType = columnTypes[columnName]
+        thead.append('<th><span data-toggle="tooltip" data-placement="top" title="' + columnType + '">' + columnName + "</span></th>");
+    }
 
+    while (sel.step()) {
         var tr = $('<tr>');
         var s = sel.get();
         for (var i = 0; i < s.length; i++) {

@@ -179,19 +179,15 @@ function getTableRowsCount(name) {
 }
 
 function getQueryRowCount(query) {
-    console.log("getQueryRowCount")
-    console.log(query)
     if (query === lastCachedQueryCount.select) {
         return lastCachedQueryCount.count;
     }
 
     var queryReplaced = query.replace(SQL_SELECT_REGEX, "SELECT COUNT(*) AS count_sv FROM ");
 
-    console.log(queryReplaced)
-
     if (queryReplaced !== query) {
         queryReplaced = queryReplaced.replace(SQL_LIMIT_REGEX, "");
-        console.log(queryReplaced)
+
         var sel = db.prepare(queryReplaced);
         if (sel.step()) {
             var count = sel.getAsObject().count_sv;
@@ -341,48 +337,26 @@ function setPage(el, next) {
     executeSql();
 }
 
-function refreshPagination(query, tableName) {
-    var limit = parseLimitFromQuery(query, tableName);
-    if (limit !== null && limit.pages > 0) {
+function renderQuery(query) {
+    try {
+        clearTableData();
+        addColumnHeaders(query);
+        addRows(query);
+        showTableData();
 
-        var pager = $("#pager");
-        pager.attr("title", "Row count: " + limit.rowCount);
-        pager.tooltip('fixTitle');
-        pager.text(limit.currentPage + " / " + limit.pages);
+        refreshPagination(query);
 
-        if (limit.currentPage <= 1) {
-            $("#page-prev").addClass("disabled");
-        } else {
-            $("#page-prev").removeClass("disabled");
-        }
-
-        if ((limit.currentPage + 1) > limit.pages) {
-            $("#page-next").addClass("disabled");
-        } else {
-            $("#page-next").removeClass("disabled");
-        }
-
-        $("#bottom-bar").show();
-    } else {
-        $("#bottom-bar").hide();
+        makeDataBoxEditable();
+        $('[data-toggle="tooltip"]').tooltip({html: true});
+        
+        setTimeout(function () {
+            positionFooter();
+        }, 100);
     }
-}
-
-function showError(msg) {
-    $("#data").hide();
-    $("#bottom-bar").hide();
-    errorBox.show();
-    errorBox.text(msg);
-}
-
-function htmlEncode(value){
-  return $('<div/>').text(value).html();
-}
-
-function showTableData() {
-    var dataBox = $("#data");
-    errorBox.hide();
-    dataBox.show();
+    catch (ex) {
+        showError(ex);
+        return;
+    }
 }
 
 function clearTableData() {
@@ -393,34 +367,24 @@ function clearTableData() {
     tbody.empty();
 }
 
-function renderQuery(query) {
+function addColumnHeaders(query) {
     var dataBox = $("#data");
     var thead = dataBox.find("thead").find("tr");
-    var tbody = dataBox.find("tbody");
-
-    clearTableData();
-    showTableData();
 
     var tableName = getTableNameFromQuery(query);
-    if (tableName == null) {
-        return;
-    }
-    
-    columnTypes = getTableColumnTypes(tableName);
-    
-    var sel;
-    try {
-        sel = db.prepare(query);
-    } catch (ex) {
-        showError(ex);
-        return;
-    }
+    var columnTypes = getTableColumnTypes(tableName);
 
     for (var columnName in columnTypes) {
         var columnType = columnTypes[columnName]
         thead.append('<th><span data-toggle="tooltip" data-placement="top" title="' + columnType + '">' + columnName + "</span></th>");
     }
+}
 
+function addRows(query) {
+    var dataBox = $("#data");
+    var tbody = dataBox.find("tbody");
+
+    var sel = db.prepare(query);
     while (sel.step()) {
         var tr = $('<tr>');
         var s = sel.get();
@@ -429,13 +393,66 @@ function renderQuery(query) {
         }
         tbody.append(tr);
     }
+}
 
-    refreshPagination(query, tableName);
+function htmlEncode(value){
+    return $('<div/>').text(value).html();
+  }
 
-    $('[data-toggle="tooltip"]').tooltip({html: true});
+function showTableData() {
+    var dataBox = $("#data");
+    errorBox.hide();
+    dataBox.show();
+}
+
+function refreshPagination(query) {
+    var tableName = getTableNameFromQuery(query);
+    var limit = parseLimitFromQuery(query, tableName);
+    if (limit !== null && limit.pages > 0) {
+        refreshPager(limit);
+        $("#bottom-bar").show();
+    } else {
+        $("#bottom-bar").hide();
+    }
+}
+
+function refreshPager(limit) {
+    refreshPagerText(limit);
+    refreshPagerNextButton(limit);
+    refreshPagerBackButton(limit);
+}
+
+function refreshPagerText(limit) {
+    var pager = $("#pager");
+    pager.attr("title", "Row count: " + limit.rowCount);
+    pager.tooltip('fixTitle');
+    pager.text(limit.currentPage + " / " + limit.pages);
+}
+
+function refreshPagerNextButton(limit) {
+    if ((limit.currentPage + 1) > limit.pages) {
+        $("#page-next").addClass("disabled");
+    } else {
+        $("#page-next").removeClass("disabled");
+    }
+}
+
+function refreshPagerBackButton(limit) {
+    if (limit.currentPage <= 1) {
+        $("#page-prev").addClass("disabled");
+    } else {
+        $("#page-prev").removeClass("disabled");
+    }
+}
+
+function makeDataBoxEditable() {
+    var dataBox = $("#data");
     dataBox.editableTableWidget();
+}
 
-    setTimeout(function () {
-        positionFooter();
-    }, 100);
+function showError(msg) {
+    $("#data").hide();
+    $("#bottom-bar").hide();
+    errorBox.show();
+    errorBox.text(msg);
 }

@@ -7,33 +7,14 @@ var rowCounts = [];
 var editor = ace.edit("sql-editor");
 var bottomBarDefaultPos = null, bottomBarDisplayStyle = null;
 var errorBox = $("#error");
+//var queryResult = new Object();
 var lastCachedQueryCount = {};
-
-$.urlParam = function(name){
-    var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);
-    if (results==null){
-        return null;
-    }
-    else{
-        return results[1] || 0;
-    }
-};
 
 var fileReaderOpts = {
     readAsDefault: "ArrayBuffer", on: {
         load: function (e, file) {
             loadDB(e.target.result);
         }
-    }
-};
-
-var selectFormatter = function (item) {
-    var index = item.text.indexOf("(");
-    if (index > -1) {
-        var name = item.text.substring(0, index);
-        return name + '<span style="color:#ccc">' + item.text.substring(index - 1) + "</span>";
-    } else {
-        return item.text;
     }
 };
 
@@ -104,23 +85,6 @@ $(window).resize(windowResize).scroll(positionFooter);
 windowResize();
 
 $(".no-propagate").on("click", function (el) { el.stopPropagation(); });
-
-//Check url to load remote DB
-var loadUrlDB = $.urlParam('url');
-if (loadUrlDB != null) {
-    setIsLoading(true);
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', decodeURIComponent(loadUrlDB), true);
-    xhr.responseType = 'arraybuffer';
-
-    xhr.onload = function(e) {
-        loadDB(this.response);
-    };
-    xhr.onerror = function (e) {
-        setIsLoading(false);
-    };
-    xhr.send();
-}
 
 function loadDB(arrayBuffer) {
     setIsLoading(true);
@@ -231,6 +195,16 @@ function resetTableList() {
     });
 }
 
+var selectFormatter = function (item) {
+    var index = item.text.indexOf("(");
+    if (index > -1) {
+        var name = item.text.substring(0, index);
+        return name + '<span style="color:#ccc">' + item.text.substring(index - 1) + "</span>";
+    } else {
+        return item.text;
+    }
+};
+
 function setIsLoading(isLoading) {
     var dropText = $("#drop-text");
     var loading = $("#drop-loading");
@@ -262,12 +236,6 @@ function doDefaultSelect(name) {
     renderQuery(defaultSelect);
 }
 
-function executeSql() {
-    var query = editor.getValue();
-    renderQuery(query);
-    $("#tables").select2("val", getTableNameFromQuery(query));
-}
-
 function getTableNameFromQuery(query) {
     var sqlRegex = SQL_FROM_REGEX.exec(query);
     if (sqlRegex != null) {
@@ -277,7 +245,25 @@ function getTableNameFromQuery(query) {
     }
 }
 
-function parseLimitFromQuery(query, tableName) {
+function setPage(el, next) {
+    var query = editor.getValue();
+
+    var limit = parseLimitFromQuery(query);
+
+    var offset = 0;
+    if (next == true) {
+        offset = limit.offset + limit.max > limit.rowCount ? limit.offset : limit.offset + limit.max;
+    }
+    else {
+        offset = limit.offset - limit.max < 0 ? limit.offset : limit.offset - limit.max;
+    }
+
+    editor.setValue(query.replace(SQL_LIMIT_REGEX, "LIMIT " + offset + "," + limit.max), -1);
+
+    executeSql();
+}
+
+function parseLimitFromQuery(query) {
     var sqlRegex = SQL_LIMIT_REGEX.exec(query);
     if (sqlRegex != null) {
         var result = {};
@@ -296,10 +282,6 @@ function parseLimitFromQuery(query, tableName) {
             return result;
         }
 
-        if (typeof tableName === "undefined") {
-            tableName = getTableNameFromQuery(query);
-        }
-
         var queryRowsCount = getQueryRowCount(query);
         if (queryRowsCount != -1) {
             result.pages = Math.ceil(queryRowsCount / result.max);
@@ -313,28 +295,10 @@ function parseLimitFromQuery(query, tableName) {
     }
 }
 
-function setPage(el, next) {
-    if ($(el).hasClass("disabled")) return;
-
+function executeSql() {
     var query = editor.getValue();
-    var limit = parseLimitFromQuery(query);
-
-    var pageToSet;
-    if (typeof next !== "undefined") {
-        pageToSet = (next ? limit.currentPage : limit.currentPage - 2 );
-    } else {
-        var page = prompt("Go to page");
-        if (!isNaN(page) && page >= 1 && page <= limit.pages) {
-            pageToSet = page - 1;
-        } else {
-            return;
-        }
-    }
-
-    var offset = (pageToSet * limit.max);
-    editor.setValue(query.replace(SQL_LIMIT_REGEX, "LIMIT " + offset + "," + limit.max), -1);
-
-    executeSql();
+    renderQuery(query);
+    $("#tables").select2("val", getTableNameFromQuery(query));
 }
 
 function renderQuery(query) {
@@ -406,8 +370,7 @@ function showTableData() {
 }
 
 function refreshPagination(query) {
-    var tableName = getTableNameFromQuery(query);
-    var limit = parseLimitFromQuery(query, tableName);
+    var limit = parseLimitFromQuery(query);
     if (limit !== null && limit.pages > 0) {
         refreshPager(limit);
         $("#bottom-bar").show();
@@ -456,3 +419,24 @@ function showError(msg) {
     errorBox.show();
     errorBox.text(msg);
 }
+
+
+function transferFromMobileClick() {
+    console.log("Link callback");
+}
+
+
+/*function executeQuery(query) {
+    queryResult = new Object();
+    var tableName = getTableNameFromQuery(query);
+    queryResult['tableName'] = tableName;
+    queryResult['columnTypes'] = getTableColumnTypes(tableName);
+
+    queryResult['resultRows'] = []
+    var sel = db.prepare(query);
+    while (sel.step()) {
+        queryResult['resultRows'].push(sel.get());
+    }
+
+    return queryResult;
+}*/

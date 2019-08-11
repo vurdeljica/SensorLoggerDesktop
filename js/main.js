@@ -1,3 +1,7 @@
+const electron = require("electron");
+const fileSystem = require("fs").promises
+const ipc = electron.ipcRenderer
+
 var SQL_FROM_REGEX = /FROM\s+([^\s;]+)/mi;
 var SQL_LIMIT_REGEX = /LIMIT\s+(\d+)(?:\s*,\s*(\d+))?/mi;
 var SQL_SELECT_REGEX = /SELECT\s+[^;]+\s+FROM\s+/mi;
@@ -96,6 +100,7 @@ function loadDB(arrayBuffer) {
         try {
             db = new SQL.Database(new Uint8Array(arrayBuffer));
 
+            storeDatabase();
             //Get all table names from master table
             tables = db.prepare("SELECT * FROM sqlite_master WHERE type='table' ORDER BY name");
         } catch (ex) {
@@ -131,6 +136,16 @@ function loadDB(arrayBuffer) {
 
         setIsLoading(false);
     }, 50);
+}
+
+async function storeDatabase() {
+    var data = db.export();
+    var buffer = new Buffer(data);
+
+    console.log("File writting has been started")
+    await fileSystem.writeFile('./tmp/db.sqlite', buffer);
+    console.log("File has been written to disk")
+    ipc.send('start-database-conversions')
 }
 
 function getTableRowsCount(name) {

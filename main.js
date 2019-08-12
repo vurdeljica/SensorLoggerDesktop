@@ -8,7 +8,14 @@ const fileSystem = require("fs")
 
 const {app, BrowserWindow, Menu} = electron;
 
+const TMP_DIRECTORY = "./tmp"
+const DB_NAME = "db"
+const DB_EXTENSION = ".sqlite"
+const DB_PATH = TMP_DIRECTORY + '/' + DB_NAME + DB_EXTENSION
+
 let mainWindow;
+
+emptyTmpDirectory();
 
 // Listen for app to be ready
 app.on('ready', function() {
@@ -18,6 +25,9 @@ app.on('ready', function() {
             nodeIntegration: true
           }
     });
+
+    //mainWindow.on('close', emptyTmpDirectory)
+
     // Load html into window
     mainWindow.loadURL(url.format({
         pathname: path.join(__dirname, 'index.html'),
@@ -34,6 +44,20 @@ app.on('ready', function() {
 // Handle create add window
 function createAddWindow() {
 
+}
+
+function emptyTmpDirectory() {
+    const directory = 'tmp';
+
+    fileSystem.readdir(directory, (err, files) => {
+    if (err) throw err;
+
+    for (const file of files) {
+        fileSystem.unlink(path.join(directory, file), err => {
+        if (err) throw err;
+        });
+    }
+    });
 }
 
 // Create menu template
@@ -62,16 +86,37 @@ const mainMenuTemplate = [
     }
 ];
 
-ipc.on('start-database-conversions', function(event) {
-    console.log("IPC is called");
+
+function exportDatabaseToJson() {
     const exporter = new SqliteToJson({
-        client: new sqlite3.Database('./tmp/db.sqlite')
+        client: new sqlite3.Database(DB_PATH)
     });
 
     exporter.all(function (err, all) {
-        fileSystem.writeFile("./tmp/output.json", JSON.stringify(all), 'utf8', function (err) {
+        fileSystem.writeFile(TMP_DIRECTORY + '/' + DB_NAME + ".json", JSON.stringify(all), 'utf8', function (err) {
             //console.log("Can not write json object. Error occurred: " + err);
         })
-      });
-    
+    });
+}
+
+function exportDatabaseToCSV() {
+    const ToCsv  =  require("./sqlite-to-csv");
+    let filePath  =  DB_PATH;
+    let outputPath  =  TMP_DIRECTORY;
+    let logPath  =  TMP_DIRECTORY;
+    let sqliteToCsv  =  new ToCsv()
+                .setFilePath(filePath)
+                .setOutputPath(outputPath)
+                .setLogPath(logPath);
+    sqliteToCsv.convert().then( (result) => {
+        //Converted successfully
+    }).catch((err) => {
+        //Failed to convert
+    });
+}
+
+ipc.on('start-database-conversions', function(event) {
+    console.log("IPC is called");
+    exportDatabaseToJson();
+    exportDatabaseToCSV();     
 })

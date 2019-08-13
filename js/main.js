@@ -437,7 +437,9 @@ function showError(msg) {
 
 
 function transferFromMobileClick() {
-    console.log("Link callback");
+    console.log("transferFromMobileClick");
+
+    ipc.send('publish-transfer-service')
 }
 
 

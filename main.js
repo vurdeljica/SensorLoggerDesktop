@@ -4,7 +4,6 @@ const path = require('path');
 const ipc = electron.ipcMain
 const sqlite3 = require('sqlite3')
 const fileSystem = require('fs')
-
 var options = {
     multicast: true, // use udp multicasting
 }
@@ -98,10 +97,22 @@ const mainMenuTemplate = [
 ipc.on('start-database-conversions', function(event) {
     console.log("start-database-conversions");
     exportDatabase("csv");
-    exportDatabase("json");     
+    //exportDatabase("json");     
 })
 
+var isConversionStarted = false
+
 function exportDatabase(exportType) {
+    console.log(isConversionStarted)
+    if (isConversionStarted) {
+        notifyUser("Can not start new conversion. Conversion is already in progress!")
+        return
+    } 
+
+    notifyUser("Conversion is started!")
+
+    isConversionStarted = true
+
     const SqliteConverter  =  require("./sqlite-converter");
     let filePath  =  DB_PATH;
     let outputPath  =  TMP_DIRECTORY;
@@ -113,18 +124,43 @@ function exportDatabase(exportType) {
 
     if (exportType === "csv") {
         sqliteConverter.convertToCSV().then( (result) => {
-            //Converted successfully
+            notifyConversionIsDone()
+            isConversionStarted = false
         }).catch((err) => {
-            //Failed to convert
+            notifyUser("Conversion failed!")
+            isConversionStarted = false
         });
     }
     else if (exportType === "json") {
         sqliteConverter.convertToJson().then( (result) => {
-            //Converted successfully
+            notifyConversionIsDone()
+            isConversionStarted = false
         }).catch((err) => {
-            //Failed to convert
+            notifyUser("Conversion failed!")
+            isConversionStarted = false
         });
     }
+}
+
+function notifyUser(messageBody) {
+    const notifier = require('node-notifier')
+    notifier.notify({
+        title: 'Sensor Logger',
+        message: messageBody
+      });
+}
+
+function notifyConversionIsDone() {
+    const notifier = require('node-notifier')
+    notifier.notify({
+        title: 'Sensor Logger',
+        message: 'Conversion is done!',
+        wait: true
+      });
+
+    notifier.on('click', function(notifierObject, options, event) {
+        require('child_process').exec('start "" "tmp"');
+    });
 }
 
 var totalNumOfFiles = 100

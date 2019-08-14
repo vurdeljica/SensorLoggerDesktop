@@ -23,6 +23,7 @@
     "bonjour-hap": "^3.5.4",
     "electron": "^5.0.6",
     "formidable": "^1.2.1",
+    "node-notifier": "^5.4.1",
     "portfinder": "^1.0.21",
     "sqlite3": "^4.0.9"
   },

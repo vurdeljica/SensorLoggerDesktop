@@ -67,8 +67,18 @@ class ToCsv {
                         }
 
                         for(let i = 0; i<rows.length; i++) {
-                            let tableData = await this.readTable(rows[i].name);
-                            await this.writeTableToCsv(tableData, rows[i].name + ".csv", outputPath);
+                            var offset = 0;
+                            var numOfRows = 50000;
+                            while (true) {
+                                var tableData = await this.readRowsFromTable(rows[i].name, offset, numOfRows);
+
+                                if(Object.entries(tableData).length === 0) {
+                                    break; // no more data to be read
+                                }
+
+                                await this.writeTableToCsv(tableData, rows[i].name + ".csv", outputPath);
+                                offset += numOfRows
+                            }
                         }
 
                         resolve({
@@ -86,11 +96,11 @@ class ToCsv {
         });
     }
 
-    readTable(tableName) {
+    readRowsFromTable(tableName, offset, numOfRows) {
         return new Promise( (resolve, reject) => { 
             let db = this.db;
             let outputPath = this.outputPath
-            db.all("select * from " + tableName, [], async (err, rows) => {
+            db.all("select * from " + tableName + " limit " + offset + "," + numOfRows, async (err, rows) => {
                 if(err) {
                     reject("Failed to execute query :: select * from " + tableName);
                 }
@@ -102,19 +112,19 @@ class ToCsv {
     }
 
     writeTableToCsv(rows, filePath, outputPath) {
-
         return new Promise( async (resolve, reject) => {
             try {
                 let columnNames = "\"" + Object.keys(rows.length ? rows[0] : []).join("\",\"") + "\"";
                 let csvData = columnNames + "\n";
-    
+
                 rows.map( (row) => {
                     csvData = csvData + "\"" + Object.values(row).join("\",\"") + "\"" + "\n";
                 });
                 
                 let fs = require('fs');
 
-                fs.writeFile(outputPath + "/" + filePath, csvData, "utf-8", (err) => {
+                //fs.appendFileSync(outputPath + "/" + filePath, csvData, "utf-8")
+                fs.appendFile(outputPath + "/" + filePath, csvData, (err) => {
                     if(err) {
                         reject("ERR104 :: Failed to write to " + outputPath + "/" + filePath);
                     }
@@ -125,6 +135,18 @@ class ToCsv {
                         })
                     }
                 });
+
+                /*fs.writeFile(outputPath + "/" + filePath, csvData, "utf-8", (err) => {
+                    if(err) {
+                        reject("ERR104 :: Failed to write to " + outputPath + "/" + filePath);
+                    }
+                    else {
+                        resolve({
+                            code : 200,
+                            message : "Write operation success"
+                        })
+                    }
+                });*/
             }
             catch(err) {
                 throw err;

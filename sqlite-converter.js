@@ -1,4 +1,4 @@
-class ToCsv {
+class SqliteConverter {
     constructor(filePath, outputPath, logPath) {
         this.filePath = filePath;
         this.outputPath = outputPath;
@@ -17,11 +17,19 @@ class ToCsv {
     }
 
     setLogPath(logPath) {
-        this.logPath = logPath + "/sqliteToCsv.log";
+        this.logPath = logPath + "/sqliteConvert.log";
         return this;
     }
 
-    convert() {
+    convertToJson() {
+        return this.convert("json")
+    }
+
+    convertToCSV() {
+        return this.convert("csv")
+    }
+
+    convert(conversionType) {
 
         return new Promise( async (resolve, reject) => {
             try {
@@ -29,11 +37,11 @@ class ToCsv {
                 let outputPath = this.outputPath;
 
                 if(!filePath) {
-                    throw "ERR102 :: filePath params missing in first argument of toCSV()";
+                    throw "ERR102 :: filePath params missing in first argument of SqliteConverter()";
                 }
 
                 if(!outputPath) {
-                    throw "ERR103 :: outputPath params missing in first argument of toCSV()";
+                    throw "ERR103 :: outputPath params missing in first argument of SqliteConverter()";
                 }
 
                 const fs = require("fs");
@@ -76,7 +84,13 @@ class ToCsv {
                                     break; // no more data to be read
                                 }
 
-                                await this.writeTableToCsv(tableData, rows[i].name + ".csv", outputPath);
+                                if (conversionType === "csv") {
+                                    await this.writeTableToCsv(tableData, rows[i].name + ".csv", outputPath);
+                                }
+                                else if (conversionType == "json") {
+                                    await this.writeTableToJson(tableData, rows[i].name + ".json", outputPath);
+                                }
+                                
                                 offset += numOfRows
                             }
                         }
@@ -123,7 +137,6 @@ class ToCsv {
                 
                 let fs = require('fs');
 
-                //fs.appendFileSync(outputPath + "/" + filePath, csvData, "utf-8")
                 fs.appendFile(outputPath + "/" + filePath, csvData, (err) => {
                     if(err) {
                         reject("ERR104 :: Failed to write to " + outputPath + "/" + filePath);
@@ -135,8 +148,21 @@ class ToCsv {
                         })
                     }
                 });
+                
+            }
+            catch(err) {
+                throw err;
+            }
+        });
+    
+    }
 
-                /*fs.writeFile(outputPath + "/" + filePath, csvData, "utf-8", (err) => {
+    writeTableToJson(rows, filePath, outputPath) {
+        return new Promise( async (resolve, reject) => {
+            try {
+                let fs = require('fs');
+
+                fs.appendFile(outputPath + "/" + filePath, JSON.stringify(rows), (err) => {
                     if(err) {
                         reject("ERR104 :: Failed to write to " + outputPath + "/" + filePath);
                     }
@@ -146,13 +172,13 @@ class ToCsv {
                             message : "Write operation success"
                         })
                     }
-                });*/
+                });
+                
             }
             catch(err) {
                 throw err;
             }
         });
-    
     }
 
     writeLog(message) {
@@ -178,14 +204,14 @@ class ToCsv {
     }
 }
 
-module.exports = ToCsv;
+module.exports = SqliteConverter;
 
 /* --- Error Handling --- */
 /*
 ERR100 -> Input database file not found
 ERR101 -> Failed to open given database with read only mode
-ERR102 -> filePath params missing in first argument of toCSV()
-ERR103 -> outputPath params missing in first argument of toCSV()
+ERR102 -> filePath params missing in first argument of SqliteConverter()
+ERR103 -> outputPath params missing in first argument of SqliteConverter()
 ERR104 -> Failed to write to csv file
 */
 

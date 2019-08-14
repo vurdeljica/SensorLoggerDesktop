@@ -439,9 +439,31 @@ function showError(msg) {
 function transferFromMobileClick() {
     console.log("transferFromMobileClick");
 
+    
+    var dropText = $("#drop-loading-message").html("Confirm transfer on mobile phone...")
+    setIsLoading(true)
+
     ipc.send('publish-transfer-service')
 }
 
+
+ipc.on('database-upload-status-percentage', function(event, arg) {
+    console.log(arg)
+    databaseUploadProgressPercentage = arg
+})
+
+var databaseUploadProgressPercentage = 0;
+
+function updateDatabaseTransferProgress() {
+    ipc.send('get-database-upload-status-percentage')
+    var dropText = $("#drop-loading-message").html("Database uploading(" + databaseUploadProgressPercentage + "%)...")
+
+    if (databaseUploadProgressPercentage != 100) {
+        setTimeout(updateDatabaseTransferProgress, 1000);
+    }
+}
+
+setTimeout(updateDatabaseTransferProgress, 1000);
 
 /*function executeQuery(query) {
     queryResult = new Object();

@@ -2,7 +2,6 @@ const electron = require('electron');
 const url = require('url');
 const path = require('path');
 const ipc = electron.ipcMain
-const SqliteToJson = require('sqlite-to-json')
 const sqlite3 = require('sqlite3')
 const fileSystem = require('fs')
 
@@ -96,39 +95,48 @@ const mainMenuTemplate = [
 ];
 
 
-function exportDatabaseToJson() {
-    const exporter = new SqliteToJson({
-        client: new sqlite3.Database(DB_PATH)
-    });
+ipc.on('start-database-conversions', function(event) {
+    console.log("start-database-conversions");
+    exportDatabase("csv");
+    exportDatabase("json");     
+})
 
-    exporter.all(function (err, all) {
-        fileSystem.writeFile(TMP_DIRECTORY + '/' + DB_NAME + ".json", JSON.stringify(all), 'utf8', function (err) {
-            //console.log("Can not write json object. Error occurred: " + err);
-        })
-    });
-}
-
-function exportDatabaseToCSV() {
-    const ToCsv  =  require("./sqlite-to-csv");
+function exportDatabase(exportType) {
+    const SqliteConverter  =  require("./sqlite-converter");
     let filePath  =  DB_PATH;
     let outputPath  =  TMP_DIRECTORY;
     let logPath  =  TMP_DIRECTORY;
-    let sqliteToCsv  =  new ToCsv()
+    let sqliteConverter  =  new SqliteConverter()
                 .setFilePath(filePath)
                 .setOutputPath(outputPath)
                 .setLogPath(logPath);
-    sqliteToCsv.convert().then( (result) => {
-        //Converted successfully
-    }).catch((err) => {
-        //Failed to convert
-    });
+
+    if (exportType === "csv") {
+        sqliteConverter.convertToCSV().then( (result) => {
+            //Converted successfully
+        }).catch((err) => {
+            //Failed to convert
+        });
+    }
+    else if (exportType === "json") {
+        sqliteConverter.convertToJson().then( (result) => {
+            //Converted successfully
+        }).catch((err) => {
+            //Failed to convert
+        });
+    }
 }
 
-ipc.on('start-database-conversions', function(event) {
-    console.log("start-database-conversions");
-    exportDatabaseToJson();
-    exportDatabaseToCSV();     
+var totalNumOfFiles = 100
+var numOfTransfeeredFiles = 0
+
+ipc.on('get-database-upload-status-percentage', function(event) {
+    event.sender.send('database-upload-status-percentage', calculateDatabaseTransferProgress())
 })
+
+function calculateDatabaseTransferProgress() {
+    return Math.floor((numOfTransfeeredFiles/totalNumOfFiles) * 100);
+}
 
 ipc.on('publish-transfer-service', function(event) {
     console.log('publish-transfer-service')
@@ -140,25 +148,29 @@ ipc.on('publish-transfer-service', function(event) {
                 var form = new formidable.IncomingForm();
                 
                 form.parse(req, function(err, fields, files) {
+                    
                     if (err) {
                         console.log('some error', err)
+                    } 
+                    else if (!(Object.entries(fields).length === 0 && fields.constructor === Object)) {
+                        totalNumOfFiles = fields['numOfFiles']
+                        res.statusCode = 200;
+                        res.setHeader('Content-Type', 'text/plain');
+                        res.end('Hello World\n');
                     } else if (!files.file) {
                         console.log('no file received')
                     } else {
                         var file = files.file
+                        numOfTransfeeredFiles++
                         console.log('saved file to', file.path)
                         console.log('original name', file.name)
                         console.log('type', file.type)
                         console.log('size', file.size)
-                    
+                        res.statusCode = 200;
+                        res.setHeader('Content-Type', 'text/plain');
+                        res.end('Hello World\n');
                     }
                 });
-
-                /*form.parse(req, function(err, fields, files) {
-                    res.writeHead(200, {'content-type': 'text/plain'});
-                    res.write('received upload:\n\n');
-                    res.end(util.inspect({fields: fields, files: files}));
-                });*/
                 
                 return;
             //}
@@ -170,7 +182,6 @@ ipc.on('publish-transfer-service', function(event) {
     });
     
 })
-
 
 
 function getLocalWifiIpAddress() {
@@ -214,9 +225,9 @@ const server = http.createServer((req, res) => {
   });
 
 
-function function2() {
-    bonjour.unpublishAll();
-}
+//function function2() {
+//    bonjour.unpublishAll();
+//}
 
 
 // call the rest of the code and have it execute after 3 seconds

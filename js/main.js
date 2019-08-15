@@ -8,7 +8,6 @@ var SQL_LIMIT_REGEX = /LIMIT\s+(\d+)(?:\s*,\s*(\d+))?/mi;
 var SQL_SELECT_REGEX = /SELECT\s+[^;]+\s+FROM\s+/mi;
 
 var db = null;
-var db2 = null;
 var rowCounts = [];
 var editor = ace.edit("sql-editor");
 var bottomBarDefaultPos = null, bottomBarDisplayStyle = null;
@@ -100,7 +99,7 @@ function loadDB(arrayBuffer, filePath) {
     setTimeout(async function () {
         var tables;
         try {
-            db2 = new sqlite3.Database(filePath)
+            db = new sqlite3.Database(filePath)
 
             //storeDatabase();
             //Get all table names from master table
@@ -141,7 +140,7 @@ function loadDB(arrayBuffer, filePath) {
 
 function getTableRowsCount(name) {
     return new Promise( (resolve, reject) => { 
-        db2.all("SELECT COUNT(*) AS count FROM '" + name + "'", async (err, rows) => {
+        db.all("SELECT COUNT(*) AS count FROM '" + name + "'", async (err, rows) => {
             if(err) {
                 reject("Failed to count number of rows in table" + name);
             }
@@ -154,7 +153,7 @@ function getTableRowsCount(name) {
 
 function getTablesInfo() {
     return new Promise( (resolve, reject) => { 
-        db2.all("SELECT * FROM sqlite_master WHERE type='table' ORDER BY name", async (err, rows) => {
+        db.all("SELECT * FROM sqlite_master WHERE type='table' ORDER BY name", async (err, rows) => {
             if(err) {
                 reject("Failed to list all tables in database");
             }
@@ -167,7 +166,7 @@ function getTablesInfo() {
 
 function getTableColumnTypes(tableName) {
     return new Promise( (resolve, reject) => { 
-        db2.all("PRAGMA table_info('" + tableName + "')", async (err, rows) => {
+        db.all("PRAGMA table_info('" + tableName + "')", async (err, rows) => {
             if(err) {
                 reject("Failed to get info about column" + tableName);
             }
@@ -318,7 +317,7 @@ function getQueryRowCount(query) {
     }
 
     return new Promise( (resolve, reject) => { 
-        db2.all(queryReplaced, async (err, rows) => {
+        db.all(queryReplaced, async (err, rows) => {
             if(err) {
                 reject("Failed to count number of rows in table" + name);
             }
@@ -396,7 +395,7 @@ async function addRows(query) {
 
 function executeQuery(query) {
     return new Promise( (resolve, reject) => { 
-        db2.all(query, (err, rows) => {
+        db.all(query, (err, rows) => {
             if(err) {
                 reject("Failed to perform default select on table:" + tableName);
             }

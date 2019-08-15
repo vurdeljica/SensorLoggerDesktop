@@ -286,6 +286,7 @@ function parseLimitFromQuery(query) {
             }
 
             var queryRowsCount = await getQueryRowCount(query);
+            console.log("queryRowsCount " + queryRowsCount)
             if (queryRowsCount != -1) {
                 result.pages = Math.ceil(queryRowsCount / result.max);
             }
@@ -302,7 +303,9 @@ function parseLimitFromQuery(query) {
 
 function getQueryRowCount(query) {
     if (query === lastCachedQueryCount.select) {
-        return lastCachedQueryCount.count;
+        return new Promise((resolve, reject) => { 
+            resolve(lastCachedQueryCount.count);
+        })
     }
 
     var queryReplaced = query.replace(SQL_SELECT_REGEX, "SELECT COUNT(*) AS count_sv FROM ");
@@ -312,21 +315,23 @@ function getQueryRowCount(query) {
 
         lastCachedQueryCount.select = query;
 
-    } else {
-        return -1;
-    }
+        return new Promise( (resolve, reject) => { 
+            db.all(queryReplaced, (err, rows) => {
+                if(err) {
+                    reject("Failed to count number of rows in table" + name);
+                }
+                else {
+                    lastCachedQueryCount.count = rows[0].count_sv;
+                    resolve(rows[0].count_sv);
+                }
+            });
+        })
 
-    return new Promise( (resolve, reject) => { 
-        db.all(queryReplaced, async (err, rows) => {
-            if(err) {
-                reject("Failed to count number of rows in table" + name);
-            }
-            else {
-                lastCachedQueryCount.count = rows[0].count;
-                resolve(rows[0].count);
-            }
-        });
-    })
+    } else {
+        return new Promise((resolve, reject) => { 
+            resolve(-1);
+        })
+    }
 }
 
 function executeSql() {

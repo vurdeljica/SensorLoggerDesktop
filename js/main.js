@@ -19,7 +19,6 @@ var lastCachedQueryCount = {};
 var fileReaderOpts = {
     readAsDefault: "ArrayBuffer", on: {
         load: function (e, file) {
-            console.log(file.path)
             loadDB(e.target.result, file.path);
         }
     }
@@ -101,13 +100,11 @@ function loadDB(arrayBuffer, filePath) {
     setTimeout(async function () {
         var tables;
         try {
-            db = new SQL.Database(new Uint8Array(arrayBuffer));
             db2 = new sqlite3.Database(filePath)
 
-            storeDatabase();
+            //storeDatabase();
             //Get all table names from master table
-            var tables2 = await getTablesInfo2()
-            tables = db.prepare("SELECT * FROM sqlite_master WHERE type='table' ORDER BY name");
+            var tables = await getTablesInfo()
         } catch (ex) {
             setIsLoading(false);
             alert(ex);
@@ -117,15 +114,13 @@ function loadDB(arrayBuffer, filePath) {
         var firstTableName = null;
         var tableList = $("#tables");
 
-        while (tables.step()) {
-            var rowObj = tables.getAsObject();
-            var name = rowObj.name;
+        for(let i = 0; i < tables.length; i++) {
+            var name = tables[i].name
 
             if (firstTableName === null) {
                 firstTableName = name;
             }
-            var rowCount = getTableRowsCount(name);
-            console.log(await getTableColumnTypes2(name))
+            var rowCount = await getTableRowsCount(name);
             rowCounts[name] = rowCount;
             tableList.append('<option value="' + name + '">' + name + ' (' + rowCount + ' rows)</option>');
         }
@@ -144,40 +139,7 @@ function loadDB(arrayBuffer, filePath) {
     }, 50);
 }
 
-function getTablesInfo2() {
-    return new Promise( (resolve, reject) => { 
-        db2.all("SELECT * FROM sqlite_master WHERE type='table' ORDER BY name", async (err, rows) => {
-            if(err) {
-                reject("Failed to list all tables in database");
-            }
-            else {
-                resolve(rows);
-            }
-        });
-    })
-}
-
-async function storeDatabase() {
-    var data = db.export();
-    var buffer = new Buffer(data);
-
-    console.log("File writting has been started")
-    await fileSystem.writeFile('./tmp/db.sqlite', buffer);
-    console.log("File has been written to disk")
-    ipc.send('start-database-conversions')
-}
-
 function getTableRowsCount(name) {
-    var sel = db.prepare("SELECT COUNT(*) AS count FROM '" + name + "'");
-    if (sel.step()) {
-        return sel.getAsObject().count;
-    } else {
-        return -1;
-    }
-}
-
-
-function getTableRowsCount2(name) {
     return new Promise( (resolve, reject) => { 
         db2.all("SELECT COUNT(*) AS count FROM '" + name + "'", async (err, rows) => {
             if(err) {
@@ -190,45 +152,20 @@ function getTableRowsCount2(name) {
     })
 }
 
-function getQueryRowCount(query) {
-    if (query === lastCachedQueryCount.select) {
-        return lastCachedQueryCount.count;
-    }
-
-    var queryReplaced = query.replace(SQL_SELECT_REGEX, "SELECT COUNT(*) AS count_sv FROM ");
-
-    if (queryReplaced !== query) {
-        queryReplaced = queryReplaced.replace(SQL_LIMIT_REGEX, "");
-
-        var sel = db.prepare(queryReplaced);
-        if (sel.step()) {
-            var count = sel.getAsObject().count_sv;
-
-            lastCachedQueryCount.select = query;
-            lastCachedQueryCount.count = count;
-
-            return count;
-        } else {
-            return -1;
-        }
-    } else {
-        return -1;
-    }
+function getTablesInfo() {
+    return new Promise( (resolve, reject) => { 
+        db2.all("SELECT * FROM sqlite_master WHERE type='table' ORDER BY name", async (err, rows) => {
+            if(err) {
+                reject("Failed to list all tables in database");
+            }
+            else {
+                resolve(rows);
+            }
+        });
+    })
 }
 
 function getTableColumnTypes(tableName) {
-    var result = new Object();
-    var sel = db.prepare("PRAGMA table_info('" + tableName + "')");
-
-    while (sel.step()) {
-        var obj = sel.getAsObject();
-        result[obj.name] = obj.type;
-    }
-
-    return result;
-}
-
-function getTableColumnTypes2(tableName) {
     return new Promise( (resolve, reject) => { 
         db2.all("PRAGMA table_info('" + tableName + "')", async (err, rows) => {
             if(err) {
@@ -295,24 +232,10 @@ function dropzoneClick() {
     $("#dropzone-dialog").click();
 }
 
-async function doDefaultSelect(name) {
-    var defaultSelect = "SELECT * FROM '" + name + "' LIMIT 0,30";
-    var defaultSelect2 = doDefaultSelect2(name)
+function doDefaultSelect(tableName) {
+    var defaultSelect = "SELECT * FROM '" + tableName + "' LIMIT 0,30"
     editor.setValue(defaultSelect, -1);
     renderQuery(defaultSelect);
-}
-
-function doDefaultSelect2(tableName) {
-    return new Promise( (resolve, reject) => { 
-        db2.all("SELECT * FROM '" + tableName + "' LIMIT 0,30", async (err, rows) => {
-            if(err) {
-                reject("Failed to perform default select on table:" + tableName);
-            }
-            else {
-                resolve(rows);
-            }
-        });
-    })
 }
 
 function getTableNameFromQuery(query) {
@@ -324,10 +247,10 @@ function getTableNameFromQuery(query) {
     }
 }
 
-function setPage(el, next) {
+async function setPage(el, next) {
     var query = editor.getValue();
 
-    var limit = parseLimitFromQuery(query);
+    var limit = await parseLimitFromQuery(query);
 
     var offset = 0;
     if (next == true) {
@@ -343,35 +266,68 @@ function setPage(el, next) {
 }
 
 function parseLimitFromQuery(query) {
-    var sqlRegex = SQL_LIMIT_REGEX.exec(query);
-    if (sqlRegex != null) {
-        var result = {};
+    return new Promise( async (resolve, reject) => { 
+        var sqlRegex = SQL_LIMIT_REGEX.exec(query);
+        if (sqlRegex != null) {
+            var result = {};
 
-        if (sqlRegex.length > 2 && typeof sqlRegex[2] !== "undefined") {
-            result.offset = parseInt(sqlRegex[1]);
-            result.max = parseInt(sqlRegex[2]);
+            if (sqlRegex.length > 2 && typeof sqlRegex[2] !== "undefined") {
+                result.offset = parseInt(sqlRegex[1]);
+                result.max = parseInt(sqlRegex[2]);
+            } else {
+                result.offset = 0;
+                result.max = parseInt(sqlRegex[1]);
+            }
+
+            if (result.max == 0) {
+                result.pages = 0;
+                result.currentPage = 0;
+                resolve(result);
+                return;
+            }
+
+            var queryRowsCount = await getQueryRowCount(query);
+            if (queryRowsCount != -1) {
+                result.pages = Math.ceil(queryRowsCount / result.max);
+            }
+            result.currentPage = Math.floor(result.offset / result.max) + 1;
+            result.rowCount = queryRowsCount;
+
+            resolve(result);
+            return;
         } else {
-            result.offset = 0;
-            result.max = parseInt(sqlRegex[1]);
+            resolve(null);
         }
+    })
+}
 
-        if (result.max == 0) {
-            result.pages = 0;
-            result.currentPage = 0;
-            return result;
-        }
-
-        var queryRowsCount = getQueryRowCount(query);
-        if (queryRowsCount != -1) {
-            result.pages = Math.ceil(queryRowsCount / result.max);
-        }
-        result.currentPage = Math.floor(result.offset / result.max) + 1;
-        result.rowCount = queryRowsCount;
-
-        return result;
-    } else {
-        return null;
+function getQueryRowCount(query) {
+    if (query === lastCachedQueryCount.select) {
+        return lastCachedQueryCount.count;
     }
+
+    var queryReplaced = query.replace(SQL_SELECT_REGEX, "SELECT COUNT(*) AS count_sv FROM ");
+
+    if (queryReplaced !== query) {
+        queryReplaced = queryReplaced.replace(SQL_LIMIT_REGEX, "");
+
+        lastCachedQueryCount.select = query;
+
+    } else {
+        return -1;
+    }
+
+    return new Promise( (resolve, reject) => { 
+        db2.all(queryReplaced, async (err, rows) => {
+            if(err) {
+                reject("Failed to count number of rows in table" + name);
+            }
+            else {
+                lastCachedQueryCount.count = rows[0].count;
+                resolve(rows[0].count);
+            }
+        });
+    })
 }
 
 function executeSql() {
@@ -410,12 +366,12 @@ function clearTableData() {
     tbody.empty();
 }
 
-function addColumnHeaders(query) {
+async function addColumnHeaders(query) {
     var dataBox = $("#data");
     var thead = dataBox.find("thead").find("tr");
 
     var tableName = getTableNameFromQuery(query);
-    var columnTypes = getTableColumnTypes(tableName);
+    var columnTypes = await getTableColumnTypes(tableName);
 
     for (var columnName in columnTypes) {
         var columnType = columnTypes[columnName]
@@ -423,19 +379,32 @@ function addColumnHeaders(query) {
     }
 }
 
-function addRows(query) {
+async function addRows(query) {
     var dataBox = $("#data");
     var tbody = dataBox.find("tbody");
 
-    var sel = db.prepare(query);
-    while (sel.step()) {
+    var queryResults = await executeQuery(query)
+
+    for (var row = 0; row < queryResults.length; row++) {
         var tr = $('<tr>');
-        var s = sel.get();
-        for (var i = 0; i < s.length; i++) {
-            tr.append('<td><span title="' + htmlEncode(s[i]) + '">' + htmlEncode(s[i]) + '</span></td>');
-        }
+        Object.keys(queryResults[row]).forEach(function(column,index) {
+            tr.append('<td><span title="' + htmlEncode(queryResults[row][column]) + '">' + htmlEncode(queryResults[row][column]) + '</span></td>');
+        });
         tbody.append(tr);
     }
+}
+
+function executeQuery(query) {
+    return new Promise( (resolve, reject) => { 
+        db2.all(query, (err, rows) => {
+            if(err) {
+                reject("Failed to perform default select on table:" + tableName);
+            }
+            else {
+                resolve(rows);
+            }
+        });
+    })
 }
 
 function htmlEncode(value){
@@ -448,8 +417,8 @@ function showTableData() {
     dataBox.show();
 }
 
-function refreshPagination(query) {
-    var limit = parseLimitFromQuery(query);
+async function refreshPagination(query) {
+    var limit = await parseLimitFromQuery(query);
     if (limit !== null && limit.pages > 0) {
         refreshPager(limit);
         $("#bottom-bar").show();
@@ -512,7 +481,6 @@ function transferFromMobileClick() {
 
 
 ipc.on('database-upload-status-percentage', function(event, arg) {
-    console.log(arg)
     databaseUploadProgressPercentage = arg
 })
 

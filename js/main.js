@@ -1,4 +1,5 @@
 const electron = require("electron");
+const sqlite3 = require('sqlite3')
 const fileSystem = require("fs").promises
 const ipc = electron.ipcRenderer
 
@@ -7,6 +8,7 @@ var SQL_LIMIT_REGEX = /LIMIT\s+(\d+)(?:\s*,\s*(\d+))?/mi;
 var SQL_SELECT_REGEX = /SELECT\s+[^;]+\s+FROM\s+/mi;
 
 var db = null;
+var db2 = null;
 var rowCounts = [];
 var editor = ace.edit("sql-editor");
 var bottomBarDefaultPos = null, bottomBarDisplayStyle = null;
@@ -17,7 +19,8 @@ var lastCachedQueryCount = {};
 var fileReaderOpts = {
     readAsDefault: "ArrayBuffer", on: {
         load: function (e, file) {
-            loadDB(e.target.result);
+            console.log(file.path)
+            loadDB(e.target.result, file.path);
         }
     }
 };
@@ -90,18 +93,20 @@ windowResize();
 
 $(".no-propagate").on("click", function (el) { el.stopPropagation(); });
 
-function loadDB(arrayBuffer) {
+function loadDB(arrayBuffer, filePath) {
     setIsLoading(true);
 
     resetTableList();
 
-    setTimeout(function () {
+    setTimeout(async function () {
         var tables;
         try {
             db = new SQL.Database(new Uint8Array(arrayBuffer));
+            db2 = new sqlite3.Database(filePath)
 
             storeDatabase();
             //Get all table names from master table
+            var tables2 = await getTablesInfo2()
             tables = db.prepare("SELECT * FROM sqlite_master WHERE type='table' ORDER BY name");
         } catch (ex) {
             setIsLoading(false);
@@ -120,6 +125,7 @@ function loadDB(arrayBuffer) {
                 firstTableName = name;
             }
             var rowCount = getTableRowsCount(name);
+            console.log(await getTableColumnTypes2(name))
             rowCounts[name] = rowCount;
             tableList.append('<option value="' + name + '">' + name + ' (' + rowCount + ' rows)</option>');
         }
@@ -136,6 +142,19 @@ function loadDB(arrayBuffer) {
 
         setIsLoading(false);
     }, 50);
+}
+
+function getTablesInfo2() {
+    return new Promise( (resolve, reject) => { 
+        db2.all("SELECT * FROM sqlite_master WHERE type='table' ORDER BY name", async (err, rows) => {
+            if(err) {
+                reject("Failed to list all tables in database");
+            }
+            else {
+                resolve(rows);
+            }
+        });
+    })
 }
 
 async function storeDatabase() {
@@ -155,6 +174,20 @@ function getTableRowsCount(name) {
     } else {
         return -1;
     }
+}
+
+
+function getTableRowsCount2(name) {
+    return new Promise( (resolve, reject) => { 
+        db2.all("SELECT COUNT(*) AS count FROM '" + name + "'", async (err, rows) => {
+            if(err) {
+                reject("Failed to count number of rows in table" + name);
+            }
+            else {
+                resolve(rows[0].count);
+            }
+        });
+    })
 }
 
 function getQueryRowCount(query) {
@@ -193,6 +226,23 @@ function getTableColumnTypes(tableName) {
     }
 
     return result;
+}
+
+function getTableColumnTypes2(tableName) {
+    return new Promise( (resolve, reject) => { 
+        db2.all("PRAGMA table_info('" + tableName + "')", async (err, rows) => {
+            if(err) {
+                reject("Failed to get info about column" + tableName);
+            }
+            else {
+                var result = new Object();
+                for(let i = 0; i < rows.length; i++) {
+                    result[rows[i].name] = rows[i].type
+                }
+                resolve(result);
+            }
+        });
+    })
 }
 
 function resetTableList() {
@@ -245,10 +295,24 @@ function dropzoneClick() {
     $("#dropzone-dialog").click();
 }
 
-function doDefaultSelect(name) {
+async function doDefaultSelect(name) {
     var defaultSelect = "SELECT * FROM '" + name + "' LIMIT 0,30";
+    var defaultSelect2 = doDefaultSelect2(name)
     editor.setValue(defaultSelect, -1);
     renderQuery(defaultSelect);
+}
+
+function doDefaultSelect2(tableName) {
+    return new Promise( (resolve, reject) => { 
+        db2.all("SELECT * FROM '" + tableName + "' LIMIT 0,30", async (err, rows) => {
+            if(err) {
+                reject("Failed to perform default select on table:" + tableName);
+            }
+            else {
+                resolve(rows);
+            }
+        });
+    })
 }
 
 function getTableNameFromQuery(query) {

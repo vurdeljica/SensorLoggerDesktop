@@ -15,6 +15,7 @@ var lastCachedQueryCount = {};
 
 
 ipc.on('show-home-page', function(event, arg) {
+    setIsLoading(false);
     $(".nouploadinfo").show();
     $("#sample-db-link").show();
     $("#output-box").hide();

@@ -17,6 +17,7 @@ const DB_PATH = TMP_DIRECTORY + '/' + DB_NAME + DB_EXTENSION
 
 let mainWindow;
 let loadedDBPath = ""
+var fileTransferServer = undefined, sockets = {}, nextSocketId = 0
 
 //emptyTmpDirectory();
 
@@ -126,6 +127,16 @@ const mainMenuTemplate = [
                 label: 'Home',
                 click() {
                     loadedDBPath = ""
+                    bonjour.unpublishAll();
+                    if (typeof fileTransferServer !== "undefined") {
+                        fileTransferServer.close(function () { 
+                            console.log('Server closed!'); });
+                            // Destroy all open sockets
+                            for (var socketId in sockets) {
+                            console.log('socket', socketId, 'destroyed');
+                            sockets[socketId].destroy();
+                            }
+                    }
                     mainWindow.webContents.send('show-home-page');
                 }
             },
@@ -248,7 +259,7 @@ ipc.on('publish-transfer-service', function(event) {
     console.log('publish-transfer-service')
 
     portfinder.getPort({port: 0, stopPort: 65535}, function (err, freePort) {
-        http.createServer(function (req, res) {
+        fileTransferServer = http.createServer(function (req, res) {
            // if (req.url == '/upload' && req.method.toLowerCase() == 'post') {
                 // parse a file upload
                 var form = new formidable.IncomingForm();
@@ -281,6 +292,18 @@ ipc.on('publish-transfer-service', function(event) {
                 return;
             //}
           }).listen(freePort);
+
+          fileTransferServer.on('connection', function (socket) {
+            // Add a newly connected socket
+            var socketId = nextSocketId++;
+            sockets[socketId] = socket;
+            console.log('socket', socketId, 'opened');
+          
+            // Remove the socket when it closes
+            socket.on('close', function () {
+              delete sockets[socketId];
+            });
+          });
 
         txtRecord = {'ip' : getLocalWifiIpAddress()}
         

@@ -2,18 +2,13 @@ const electron = require('electron');
 const url = require('url');
 const path = require('path');
 const ipc = electron.ipcMain
-const sqlite3 = require('sqlite3')
 const fileSystem = require('fs')
-var options = {
-    multicast: true, // use udp multicasting
-}
 var bonjour = require('bonjour-hap')();
-//const bonjour = require('bonjour')()
 const portfinder = require('portfinder')
 const http = require('http');
 const formidable = require('formidable')
 
-const {app, BrowserWindow, Menu} = electron;
+const {app, BrowserWindow, Menu, dialog} = electron;
 
 const TMP_DIRECTORY = "./tmp"
 const DB_NAME = "db"
@@ -21,39 +16,9 @@ const DB_EXTENSION = ".sqlite"
 const DB_PATH = TMP_DIRECTORY + '/' + DB_NAME + DB_EXTENSION
 
 let mainWindow;
+let loadedDBPath = ""
 
-emptyTmpDirectory();
-
-// Listen for app to be ready
-app.on('ready', function() {
-    // Create new window
-    mainWindow = new BrowserWindow({
-        webPreferences: {
-            nodeIntegration: true
-          },
-          minHeight: 700,
-          minWidth: 1100
-    });
-
-    //mainWindow.on('close', emptyTmpDirectory)
-
-    // Load html into window
-    mainWindow.loadURL(url.format({
-        pathname: path.join(__dirname, 'index.html'),
-        protocol:'file:',
-        slashes: true
-    }));
-
-    // Build menu from template
-    //const mainMenu = Menu.buildFromTemplate(mainMenuTemplate);
-    // Insert menu
-    //Menu.setApplicationMenu(mainMenu);
-});
-
-// Handle create add window
-function createAddWindow() {
-
-}
+//emptyTmpDirectory();
 
 function emptyTmpDirectory() {
     const directory = 'tmp';
@@ -69,32 +34,132 @@ function emptyTmpDirectory() {
     });
 }
 
+// Listen for app to be ready
+app.on('ready', function() {
+    emptyTmpDirectory()
+
+    // Create new window
+    mainWindow = new BrowserWindow({
+        minHeight: 700,
+        minWidth: 1100,
+        webPreferences: {
+            nodeIntegration: true
+        }
+    });
+
+    //mainWindow.on('close', emptyTmpDirectory)
+
+    // Load html into window
+    mainWindow.loadURL(url.format({
+        pathname: path.join(__dirname, 'index.html'),
+        protocol:'file:',
+        slashes: true
+    }));
+
+    // Build menu from template
+    const mainMenu = Menu.buildFromTemplate(mainMenuTemplate);
+    // Insert menu
+    Menu.setApplicationMenu(mainMenu);
+});
+
 // Create menu template
 const mainMenuTemplate = [
     {
-        label:'File', 
-        submenu:[
+        label: 'File', 
+        submenu: [
             {
-                label: 'Add Item',
+                label: 'Save as',
                 click() {
-                    createAddWindow();
+                    if (loadedDBPath === "") {
+                        return;
+                    }
+
+                    const options = { defaultPath: app.getPath('documents') }
+                    dialog.showSaveDialog(null, options, (destination) => {
+                        if(typeof destination !== "undefined") {
+                            copyFile(loadedDBPath, destination)
+                        }
+                    });
                 }
             },
             {
-                label: 'Clear Items'
+                label: 'Convert to',
+                submenu : [
+                    {
+                        label: 'CSV',
+                        click() {
+                            if (loadedDBPath === "") {
+                                return;
+                            }
+
+                            exportDatabase("csv")
+                        }
+                    },
+                    {
+                        label: 'JSON',
+                        click() {
+                            if (loadedDBPath === "") {
+                                return;
+                            }
+
+                            exportDatabase("json")
+                        }
+                    }
+                ]
+            },
+            {
+                type: 'separator'
             },
             {
                 label: 'Quit',
                 accelerator: process.platfrom == 'darwin' ? 'Command+Q' : 'Ctrl+Q',
                 click() {
-                    //ipc.send
-                    //app.quit();
+                    app.quit();
                 }
+            }
+        ]
+    },
+    {
+        label: 'View',
+        submenu: [
+            {
+                label: 'Home',
+                click() {
+                    loadedDBPath = ""
+                    mainWindow.webContents.send('show-home-page');
+                }
+            },
+            {
+                role: 'togglefullscreen'
+            },
+            {
+                role: 'toggledevtools'
+            }
+        ]
+    },
+    {
+        label: 'Window',
+        submenu: [
+            {
+                role: 'minimize'
+            },
+            {
+                role: 'reload'
+            },
+            {
+                role: 'close'
             }
         ]
     }
 ];
 
+function copyFile(source, destination) {
+    fileSystem.copyFile(source, destination, (err) => {
+        if (err) {
+            notifyUser("Save as failed! Please try again.")
+        }
+      });
+}
 
 ipc.on('start-database-conversions', function(event) {
     console.log("start-database-conversions");
@@ -105,7 +170,6 @@ ipc.on('start-database-conversions', function(event) {
 var isConversionStarted = false
 
 function exportDatabase(exportType) {
-    console.log(isConversionStarted)
     if (isConversionStarted) {
         notifyUser("Can not start new conversion. Conversion is already in progress!")
         return
@@ -175,6 +239,10 @@ ipc.on('get-database-upload-status-percentage', function(event) {
 function calculateDatabaseTransferProgress() {
     return Math.floor((numOfTransfeeredFiles/totalNumOfFiles) * 100);
 }
+
+ipc.on('database-file-path', (event, arg) => {
+    loadedDBPath = arg;
+})
 
 ipc.on('publish-transfer-service', function(event) {
     console.log('publish-transfer-service')
@@ -247,20 +315,6 @@ bonjour.find({ type: 'hap' }, function (service) {
     console.log('Found an HTTP server:', service)
     //console.log(service.referer.address)
 })
-
-
-const hostname = '127.0.0.1';
-const port = 3000;
-const server = http.createServer((req, res) => {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    res.end('Hello World\n');
-  });
-  
-  server.listen(port, () => {
-    console.log(`Server running at http://${hostname}:${port}/`);
-  });
-
 
 //function function2() {
 //    bonjour.unpublishAll();

@@ -1,5 +1,5 @@
 const electron = require("electron");
-const fileSystem = require("fs").promises
+const { dialog } = require('electron').remote
 const ipc = electron.ipcRenderer
 
 var SQL_FROM_REGEX = /FROM\s+([^\s;]+)/mi;
@@ -7,19 +7,27 @@ var SQL_LIMIT_REGEX = /LIMIT\s+(\d+)(?:\s*,\s*(\d+))?/mi;
 var SQL_SELECT_REGEX = /SELECT\s+[^;]+\s+FROM\s+/mi;
 
 var dbManager = null;
-var rowCounts = [];
 var editor = ace.edit("sql-editor");
 var bottomBarDefaultPos = null, bottomBarDisplayStyle = null;
 var errorBox = $("#error");
 //var queryResult = new Object();
 var lastCachedQueryCount = {};
 
+
+ipc.on('show-home-page', function(event, arg) {
+    $(".nouploadinfo").show();
+    $("#sample-db-link").show();
+    $("#output-box").hide();
+    $("#success-box").hide();
+    $("#bottom-bar").hide();
+    $("#dropzone").delay(50).animate({height: 497}, 500);
+
+})
+
 var fileReaderOpts = {
     readAsDefault: "ArrayBuffer", on: {
         beforestart: function (e, file) {
             loadDB(e.path)
-            //loadDB2(e.path)
-            //loadDB(e.path);
             return false;
         }
     }
@@ -73,7 +81,7 @@ if (typeof FileReader === "undefined") {
     $('#dropzone, #dropzone-dialog').hide();
     $('#compat-error').show();
 } else {
-    $('#dropzone, #dropzone-dialog').fileReaderJS(fileReaderOpts);
+    //$('#dropzone, #dropzone-dialog').fileReaderJS(fileReaderOpts);
 }
 
 //Initialize editor
@@ -89,7 +97,7 @@ editor.setOptions({ maxLines: 5 });
 
 //Update pager position
 $(window).resize(windowResize).scroll(positionFooter);
-windowResize();
+//windowResize();
 
 $(".no-propagate").on("click", function (el) { el.stopPropagation(); });
 
@@ -97,6 +105,8 @@ function loadDB(filePath) {
     setIsLoading(true);
 
     resetTableList();
+
+    ipc.send('database-file-path', filePath)
 
     setTimeout(function () {
         try {
@@ -172,7 +182,13 @@ function setIsLoading(isLoading) {
 }
 
 function dropzoneClick() {
-    $("#dropzone-dialog").click();
+    //$("#dropzone-dialog").click();
+    const options = {filters: [{name: 'Sqlite', extensions: ['sqlite', 'db'] }]}
+    dialog.showOpenDialog(null, options, (filePaths) => {
+        if(typeof filePaths !== "undefined") {
+            loadDB(filePaths[0])
+        }
+    });
 }
 
 function doDefaultSelect(tableName) {

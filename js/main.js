@@ -5,6 +5,7 @@ const ipc = electron.ipcRenderer
 var SQL_FROM_REGEX = /FROM\s+([^\s;]+)/mi;
 var SQL_LIMIT_REGEX = /LIMIT\s+(\d+)(?:\s*,\s*(\d+))?/mi;
 var SQL_SELECT_REGEX = /SELECT\s+[^;]+\s+FROM\s+/mi;
+const UPLOADED_DB_PATH = "./data/data.sqlite"
 
 var dbManager = null;
 var editor = ace.edit("sql-editor");
@@ -16,6 +17,7 @@ var lastCachedQueryCount = {};
 
 ipc.on('show-home-page', function(event, arg) {
     setIsLoading(false);
+    $("#drop-loading-message").html("Processing file ...")
     $(".nouploadinfo").show();
     $("#sample-db-link").show();
     $("#output-box").hide();
@@ -23,6 +25,8 @@ ipc.on('show-home-page', function(event, arg) {
     $("#bottom-bar").hide();
     $("#dropzone").delay(50).animate({height: 497}, 500);
 
+    databaseUploadProgressPercentage = 0;
+    databaseErrorOccured = false
 })
 
 var fileReaderOpts = {
@@ -400,7 +404,6 @@ function showError(msg) {
     errorBox.text(msg);
 }
 
-
 function transferFromMobileClick() {
     console.log("transferFromMobileClick");
 
@@ -410,20 +413,35 @@ function transferFromMobileClick() {
     ipc.send('publish-transfer-service')
 }
 
+var databaseUploadProgressPercentage = 0;
+var databaseErrorOccured = false
 
 ipc.on('database-upload-status-percentage', function(event, arg) {
     databaseUploadProgressPercentage = arg
 })
 
-var databaseUploadProgressPercentage = 0;
+ipc.on('database-transfer-started', function(event, arg) {
+    databaseErrorOccured = false
+    setTimeout(updateDatabaseTransferProgress, 1000);
+})
+
+ipc.on('database-transfer-error', function(event, arg) {
+    databaseErrorOccured = true
+    $("#drop-loading-message").html("Error occured at " + databaseUploadProgressPercentage + "%. Please retry sending or go to home page.")
+})
 
 function updateDatabaseTransferProgress() {
+    if (databaseErrorOccured) return;
+
     ipc.send('get-database-upload-status-percentage')
-    //var dropText = $("#drop-loading-message").html("Database uploading(" + databaseUploadProgressPercentage + "%)...")
+    $("#drop-loading-message").html("Database uploading(" + databaseUploadProgressPercentage + "%)...")
 
     if (databaseUploadProgressPercentage != 100) {
         setTimeout(updateDatabaseTransferProgress, 1000);
     }
+    else {
+        loadDB(UPLOADED_DB_PATH)
+    }
 }
 
-setTimeout(updateDatabaseTransferProgress, 1000);
+

@@ -10,10 +10,9 @@ const formidable = require('formidable')
 
 const {app, BrowserWindow, Menu, dialog} = electron;
 
-const TMP_DIRECTORY = "./tmp"
-const DB_NAME = "db"
-const DB_EXTENSION = ".sqlite"
-const DB_PATH = TMP_DIRECTORY + '/' + DB_NAME + DB_EXTENSION
+const UPLOADED_DB_PATH = "./data/data.sqlite"
+const EXPORT_DIRECTORY_NAME = "export"
+const EXPORT_DIRECTORY = "./" + EXPORT_DIRECTORY_NAME
 
 let mainWindow;
 let loadedDBPath = ""
@@ -21,14 +20,12 @@ var fileTransferServer = undefined, sockets = {}, nextSocketId = 0
 
 //emptyTmpDirectory();
 
-function emptyTmpDirectory() {
-    const directory = 'tmp';
-
-    fileSystem.readdir(directory, (err, files) => {
+function emptyExportDirectory() {
+    fileSystem.readdir(EXPORT_DIRECTORY, (err, files) => {
     if (err) throw err;
 
     for (const file of files) {
-        fileSystem.unlink(path.join(directory, file), err => {
+        fileSystem.unlink(path.join(EXPORT_DIRECTORY, file), err => {
         if (err) throw err;
         });
     }
@@ -37,15 +34,16 @@ function emptyTmpDirectory() {
 
 // Listen for app to be ready
 app.on('ready', function() {
-    emptyTmpDirectory()
+    emptyExportDirectory()
 
     // Create new window
     mainWindow = new BrowserWindow({
-        minHeight: 700,
-        minWidth: 1100,
         webPreferences: {
             nodeIntegration: true
-        }
+        },
+        minHeight: 700,
+        minWidth: 1100,
+        show: false
     });
 
     //mainWindow.on('close', emptyTmpDirectory)
@@ -56,6 +54,10 @@ app.on('ready', function() {
         protocol:'file:',
         slashes: true
     }));
+
+    mainWindow.webContents.on('did-finish-load', function() {
+        mainWindow.show();
+    });
 
     // Build menu from template
     const mainMenu = Menu.buildFromTemplate(mainMenuTemplate);
@@ -133,8 +135,8 @@ const mainMenuTemplate = [
                             console.log('Server closed!'); });
                             // Destroy all open sockets
                             for (var socketId in sockets) {
-                            console.log('socket', socketId, 'destroyed');
-                            sockets[socketId].destroy();
+                                console.log('socket', socketId, 'destroyed');
+                                sockets[socketId].destroy();
                             }
                     }
                     mainWindow.webContents.send('show-home-page');
@@ -186,14 +188,14 @@ function exportDatabase(exportType) {
         return
     } 
 
-    notifyUser("Conversion is started!")
+    notifyUser("Conversion started!")
 
     isConversionStarted = true
 
     const SqliteConverter  =  require("./sqlite-converter");
-    let filePath  =  DB_PATH;
-    let outputPath  =  TMP_DIRECTORY;
-    let logPath  =  TMP_DIRECTORY;
+    let filePath  =  loadedDBPath;
+    let outputPath  =  EXPORT_DIRECTORY;
+    let logPath  =  EXPORT_DIRECTORY;
     let sqliteConverter  =  new SqliteConverter()
                 .setFilePath(filePath)
                 .setOutputPath(outputPath)
@@ -236,7 +238,7 @@ function notifyConversionIsDone() {
       });
 
     notifier.on('click', function(notifierObject, options, event) {
-        require('child_process').exec('start "" "tmp"');
+        require('child_process').exec('start "" ' + EXPORT_DIRECTORY_NAME);
     });
 }
 
@@ -268,12 +270,16 @@ ipc.on('publish-transfer-service', function(event) {
                     
                     if (err) {
                         console.log('some error', err)
+                        mainWindow.webContents.send('database-transfer-error');
                     } 
                     else if (!(Object.entries(fields).length === 0 && fields.constructor === Object)) {
                         totalNumOfFiles = fields['numOfFiles']
+                        console.log(totalNumOfFiles)
                         res.statusCode = 200;
                         res.setHeader('Content-Type', 'text/plain');
                         res.end('Hello World\n');
+                        mainWindow.webContents.send('database-transfer-started');
+                        numOfTransfeeredFiles = 0
                     } else if (!files.file) {
                         console.log('no file received')
                     } else {
@@ -307,7 +313,9 @@ ipc.on('publish-transfer-service', function(event) {
 
         txtRecord = {'ip' : getLocalWifiIpAddress()}
         
-        bonjour.publish({ name: "SensorLoggerFileTransfer2", type: 'hap', port: freePort, host: "test.local.", txt: txtRecord })
+        const hostname = require("os").hostname()  + ".local."
+        const name = "SensorLoggerFileTransfer"
+        bonjour.publish({ name: name, type: 'hap', port: freePort, host: hostname, txt: txtRecord })
     });
     
 })

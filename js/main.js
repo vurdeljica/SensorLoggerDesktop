@@ -134,43 +134,6 @@ function loadDB(filePath) {
     }, 100);
 }
 
-    /*setTimeout(function () {
-        try {
-            console.log("Before loading db: " + new Date().getTime())
-            dbManager = new DBManager(filePath);
-            console.log("After loading db: " + new Date().getTime())
-        } catch (ex) {
-            setIsLoading(false);
-            alert(ex);
-            return;
-        }
-
-        var firstTableName = null;
-        var tableList = $("#tables");
-
-        var rowCounts = dbManager.getTableRowCounts()
-
-        for (const [tableName, rowCount] of Object.entries(rowCounts)) {
-            if (firstTableName === null) {
-                firstTableName = tableName;
-            }
-            tableList.append('<option value="' + tableName + '">' + tableName + ' (' + rowCount + ' rows)</option>');
-        }
-
-        //Select first table and show It
-        tableList.select2("val", firstTableName);
-        doDefaultSelect(firstTableName);
-
-        $("#output-box").fadeIn();
-        $(".nouploadinfo").hide();
-        $("#sample-db-link").hide();
-        $("#dropzone").delay(50).animate({height: 50}, 500);
-        $("#success-box").show();
-
-        setIsLoading(false);
-    }, 50);
-}*/
-
 function resetTableList() {
     var tables = $("#tables");
     rowCounts = [];
@@ -280,7 +243,6 @@ function getQueryRowCount(query) {
 
         lastCachedQueryCount.select = query;
         var tableName = dbManager.getTableNameFromQuery(query)
-        //var count = dbManager.queryTableRowCount(tableName)
         var count = dbManager.getTableRowCount(tableName)
         lastCachedQueryCount.count = count
 

@@ -30,7 +30,9 @@ app.on('ready', function() {
     mainWindow = new BrowserWindow({
         webPreferences: {
             nodeIntegration: true
-          }
+          },
+          minHeight: 700,
+          minWidth: 1100
     });
 
     //mainWindow.on('close', emptyTmpDirectory)

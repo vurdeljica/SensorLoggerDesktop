@@ -1,5 +1,4 @@
 const electron = require("electron");
-const sqlite3 = require('sqlite3')
 const fileSystem = require("fs").promises
 const ipc = electron.ipcRenderer
 
@@ -7,7 +6,7 @@ var SQL_FROM_REGEX = /FROM\s+([^\s;]+)/mi;
 var SQL_LIMIT_REGEX = /LIMIT\s+(\d+)(?:\s*,\s*(\d+))?/mi;
 var SQL_SELECT_REGEX = /SELECT\s+[^;]+\s+FROM\s+/mi;
 
-var db = null;
+var dbManager = null;
 var rowCounts = [];
 var editor = ace.edit("sql-editor");
 var bottomBarDefaultPos = null, bottomBarDisplayStyle = null;
@@ -17,8 +16,11 @@ var lastCachedQueryCount = {};
 
 var fileReaderOpts = {
     readAsDefault: "ArrayBuffer", on: {
-        load: function (e, file) {
-            loadDB(e.target.result, file.path);
+        beforestart: function (e, file) {
+            loadDB(e.path)
+            //loadDB2(e.path)
+            //loadDB(e.path);
+            return false;
         }
     }
 };
@@ -91,19 +93,14 @@ windowResize();
 
 $(".no-propagate").on("click", function (el) { el.stopPropagation(); });
 
-function loadDB(arrayBuffer, filePath) {
+function loadDB(filePath) {
     setIsLoading(true);
 
     resetTableList();
 
-    setTimeout(async function () {
-        var tables;
+    setTimeout(function () {
         try {
-            db = new sqlite3.Database(filePath)
-
-            //storeDatabase();
-            //Get all table names from master table
-            var tables = await getTablesInfo()
+            dbManager = new DBManager(filePath);
         } catch (ex) {
             setIsLoading(false);
             alert(ex);
@@ -113,15 +110,51 @@ function loadDB(arrayBuffer, filePath) {
         var firstTableName = null;
         var tableList = $("#tables");
 
-        for(let i = 0; i < tables.length; i++) {
-            var name = tables[i].name
+        var rowCounts = dbManager.getTableRowCounts()
 
+        for (const [tableName, rowCount] of Object.entries(rowCounts)) {
             if (firstTableName === null) {
-                firstTableName = name;
+                firstTableName = tableName;
             }
-            var rowCount = await getTableRowsCount(name);
-            rowCounts[name] = rowCount;
-            tableList.append('<option value="' + name + '">' + name + ' (' + rowCount + ' rows)</option>');
+            tableList.append('<option value="' + tableName + '">' + tableName + ' (' + rowCount + ' rows)</option>');
+        }
+
+        //Select first table and show It
+        tableList.select2("val", firstTableName);
+        doDefaultSelect(firstTableName);
+
+        $("#output-box").fadeIn();
+        $(".nouploadinfo").hide();
+        $("#sample-db-link").hide();
+        $("#dropzone").delay(50).animate({height: 50}, 500);
+        $("#success-box").show();
+
+        setIsLoading(false);
+
+    }, 100);
+}
+
+    /*setTimeout(function () {
+        try {
+            console.log("Before loading db: " + new Date().getTime())
+            dbManager = new DBManager(filePath);
+            console.log("After loading db: " + new Date().getTime())
+        } catch (ex) {
+            setIsLoading(false);
+            alert(ex);
+            return;
+        }
+
+        var firstTableName = null;
+        var tableList = $("#tables");
+
+        var rowCounts = dbManager.getTableRowCounts()
+
+        for (const [tableName, rowCount] of Object.entries(rowCounts)) {
+            if (firstTableName === null) {
+                firstTableName = tableName;
+            }
+            tableList.append('<option value="' + tableName + '">' + tableName + ' (' + rowCount + ' rows)</option>');
         }
 
         //Select first table and show It
@@ -136,50 +169,7 @@ function loadDB(arrayBuffer, filePath) {
 
         setIsLoading(false);
     }, 50);
-}
-
-function getTableRowsCount(name) {
-    return new Promise( (resolve, reject) => { 
-        db.all("SELECT COUNT(*) AS count FROM '" + name + "'", async (err, rows) => {
-            if(err) {
-                reject("Failed to count number of rows in table" + name);
-            }
-            else {
-                resolve(rows[0].count);
-            }
-        });
-    })
-}
-
-function getTablesInfo() {
-    return new Promise( (resolve, reject) => { 
-        db.all("SELECT * FROM sqlite_master WHERE type='table' ORDER BY name", async (err, rows) => {
-            if(err) {
-                reject("Failed to list all tables in database");
-            }
-            else {
-                resolve(rows);
-            }
-        });
-    })
-}
-
-function getTableColumnTypes(tableName) {
-    return new Promise( (resolve, reject) => { 
-        db.all("PRAGMA table_info('" + tableName + "')", async (err, rows) => {
-            if(err) {
-                reject("Failed to get info about column" + tableName);
-            }
-            else {
-                var result = new Object();
-                for(let i = 0; i < rows.length; i++) {
-                    result[rows[i].name] = rows[i].type
-                }
-                resolve(result);
-            }
-        });
-    })
-}
+}*/
 
 function resetTableList() {
     var tables = $("#tables");
@@ -218,15 +208,6 @@ function setIsLoading(isLoading) {
     }
 }
 
-function extractFileNameWithoutExt(filename) {
-    var dotIndex = filename.lastIndexOf(".");
-    if (dotIndex > -1) {
-        return filename.substr(0, dotIndex);
-    } else {
-        return filename;
-    }
-}
-
 function dropzoneClick() {
     $("#dropzone-dialog").click();
 }
@@ -237,19 +218,10 @@ function doDefaultSelect(tableName) {
     renderQuery(defaultSelect);
 }
 
-function getTableNameFromQuery(query) {
-    var sqlRegex = SQL_FROM_REGEX.exec(query);
-    if (sqlRegex != null) {
-        return sqlRegex[1].replace(/"|'/gi, "");
-    } else {
-        return null;
-    }
-}
-
-async function setPage(el, next) {
+function setPage(el, next) {
     var query = editor.getValue();
 
-    var limit = await parseLimitFromQuery(query);
+    var limit = parseLimitFromQuery(query);
 
     var offset = 0;
     if (next == true) {
@@ -265,7 +237,6 @@ async function setPage(el, next) {
 }
 
 function parseLimitFromQuery(query) {
-    return new Promise( async (resolve, reject) => { 
         var sqlRegex = SQL_LIMIT_REGEX.exec(query);
         if (sqlRegex != null) {
             var result = {};
@@ -281,31 +252,25 @@ function parseLimitFromQuery(query) {
             if (result.max == 0) {
                 result.pages = 0;
                 result.currentPage = 0;
-                resolve(result);
-                return;
+                return(result);
             }
 
-            var queryRowsCount = await getQueryRowCount(query);
-            console.log("queryRowsCount " + queryRowsCount)
+            var queryRowsCount = getQueryRowCount(query);
             if (queryRowsCount != -1) {
                 result.pages = Math.ceil(queryRowsCount / result.max);
             }
             result.currentPage = Math.floor(result.offset / result.max) + 1;
             result.rowCount = queryRowsCount;
 
-            resolve(result);
-            return;
+            return(result);
         } else {
-            resolve(null);
+            return null;
         }
-    })
 }
 
 function getQueryRowCount(query) {
     if (query === lastCachedQueryCount.select) {
-        return new Promise((resolve, reject) => { 
-            resolve(lastCachedQueryCount.count);
-        })
+            return lastCachedQueryCount.count;
     }
 
     var queryReplaced = query.replace(SQL_SELECT_REGEX, "SELECT COUNT(*) AS count_sv FROM ");
@@ -314,40 +279,37 @@ function getQueryRowCount(query) {
         queryReplaced = queryReplaced.replace(SQL_LIMIT_REGEX, "");
 
         lastCachedQueryCount.select = query;
+        var tableName = dbManager.getTableNameFromQuery(query)
+        //var count = dbManager.queryTableRowCount(tableName)
+        var count = dbManager.getTableRowCount(tableName)
+        lastCachedQueryCount.count = count
 
-        return new Promise( (resolve, reject) => { 
-            db.all(queryReplaced, (err, rows) => {
-                if(err) {
-                    reject("Failed to count number of rows in table" + name);
-                }
-                else {
-                    lastCachedQueryCount.count = rows[0].count_sv;
-                    resolve(rows[0].count_sv);
-                }
-            });
-        })
+        return count
 
     } else {
-        return new Promise((resolve, reject) => { 
-            resolve(-1);
-        })
+        return -1
     }
 }
 
 function executeSql() {
     var query = editor.getValue();
     renderQuery(query);
-    $("#tables").select2("val", getTableNameFromQuery(query));
+    $("#tables").select2("val", dbManager.getTableNameFromQuery(query));
 }
 
 function renderQuery(query) {
     try {
+        console.log(new Date().getTime())
         clearTableData();
+        console.log(new Date().getTime())
         addColumnHeaders(query);
+        console.log(new Date().getTime())
         addRows(query);
+        console.log(new Date().getTime())
         showTableData();
-
+        console.log(new Date().getTime())
         refreshPagination(query);
+        console.log(new Date().getTime())
 
         makeDataBoxEditable();
         $('[data-toggle="tooltip"]').tooltip({html: true});
@@ -370,12 +332,12 @@ function clearTableData() {
     tbody.empty();
 }
 
-async function addColumnHeaders(query) {
+function addColumnHeaders(query) {
     var dataBox = $("#data");
     var thead = dataBox.find("thead").find("tr");
 
-    var tableName = getTableNameFromQuery(query);
-    var columnTypes = await getTableColumnTypes(tableName);
+    var tableName = dbManager.getTableNameFromQuery(query);
+    var columnTypes = dbManager.queryTableColumnTypes(tableName);
 
     for (var columnName in columnTypes) {
         var columnType = columnTypes[columnName]
@@ -383,32 +345,19 @@ async function addColumnHeaders(query) {
     }
 }
 
-async function addRows(query) {
+function addRows(query) {
     var dataBox = $("#data");
     var tbody = dataBox.find("tbody");
 
-    var queryResults = await executeQuery(query)
+    var queryResults = dbManager.executeQuery(query)
 
-    for (var row = 0; row < queryResults.length; row++) {
+    for (const row of queryResults.iterate()) {
         var tr = $('<tr>');
-        Object.keys(queryResults[row]).forEach(function(column,index) {
-            tr.append('<td><span title="' + htmlEncode(queryResults[row][column]) + '">' + htmlEncode(queryResults[row][column]) + '</span></td>');
+        Object.keys(row).forEach(function(column,index) {
+            tr.append('<td><span title="' + htmlEncode(row[column]) + '">' + htmlEncode(row[column]) + '</span></td>');
         });
         tbody.append(tr);
     }
-}
-
-function executeQuery(query) {
-    return new Promise( (resolve, reject) => { 
-        db.all(query, (err, rows) => {
-            if(err) {
-                reject("Failed to perform default select on table:" + tableName);
-            }
-            else {
-                resolve(rows);
-            }
-        });
-    })
 }
 
 function htmlEncode(value){
@@ -421,8 +370,8 @@ function showTableData() {
     dataBox.show();
 }
 
-async function refreshPagination(query) {
-    var limit = await parseLimitFromQuery(query);
+function refreshPagination(query) {
+    var limit = parseLimitFromQuery(query);
     if (limit !== null && limit.pages > 0) {
         refreshPager(limit);
         $("#bottom-bar").show();
@@ -476,7 +425,6 @@ function showError(msg) {
 function transferFromMobileClick() {
     console.log("transferFromMobileClick");
 
-    
     var dropText = $("#drop-loading-message").html("Confirm transfer on mobile phone...")
     setIsLoading(true)
 
@@ -492,7 +440,7 @@ var databaseUploadProgressPercentage = 0;
 
 function updateDatabaseTransferProgress() {
     ipc.send('get-database-upload-status-percentage')
-    var dropText = $("#drop-loading-message").html("Database uploading(" + databaseUploadProgressPercentage + "%)...")
+    //var dropText = $("#drop-loading-message").html("Database uploading(" + databaseUploadProgressPercentage + "%)...")
 
     if (databaseUploadProgressPercentage != 100) {
         setTimeout(updateDatabaseTransferProgress, 1000);
@@ -500,18 +448,3 @@ function updateDatabaseTransferProgress() {
 }
 
 setTimeout(updateDatabaseTransferProgress, 1000);
-
-/*function executeQuery(query) {
-    queryResult = new Object();
-    var tableName = getTableNameFromQuery(query);
-    queryResult['tableName'] = tableName;
-    queryResult['columnTypes'] = getTableColumnTypes(tableName);
-
-    queryResult['resultRows'] = []
-    var sel = db.prepare(query);
-    while (sel.step()) {
-        queryResult['resultRows'].push(sel.get());
-    }
-
-    return queryResult;
-}*/

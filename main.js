@@ -219,7 +219,6 @@ ipc.on('publish-transfer-service', function(event) {
     
 })
 
-
 function getLocalWifiIpAddress() {
     var os = require('os');
     var ifaces = os.networkInterfaces();

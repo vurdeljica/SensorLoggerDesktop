@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/vurdeljica/SensorLoggerDesktop#readme",
   "dependencies": {
+    "better-sqlite3": "^5.4.2",
     "bonjour": "^3.5.0",
     "bonjour-hap": "^3.5.4",
     "electron": "^5.0.6",

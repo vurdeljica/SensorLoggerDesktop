@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+message SensorData {
+    float num1 = 1;
+    float num2 = 2;
+    float num3 = 3;
+}

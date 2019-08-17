@@ -7,6 +7,8 @@ var bonjour = require('bonjour-hap')();
 const portfinder = require('portfinder')
 const http = require('http');
 const formidable = require('formidable')
+const protobuf = require('protobufjs')
+const zlib = require('zlib');
 
 const {app, BrowserWindow, Menu, dialog} = electron;
 
@@ -283,6 +285,22 @@ ipc.on('publish-transfer-service', function(event) {
                     } else if (!files.file) {
                         console.log('no file received')
                     } else {
+                        const fileContents = fileSystem.createReadStream(files.file.path);
+                        const writeStream = fileSystem.createWriteStream(files.file.path + 'unzip');
+                        const unzip = zlib.createInflate();
+
+                        fileContents.pipe(unzip).pipe(writeStream).on('finish', (err) => {
+                            writeStream.close()
+                            //console.log("drugi " + typeof fileSystem.readFileSync(files.file.path))
+                            var fileContent = fileSystem.readFileSync(files.file.path + 'unzip');
+                            var reader = protobuf.Reader.create(fileContent);
+                            while(reader.pos < reader.len) {
+                                var sensorData = require('./sensordata.js').SensorData.decodeDelimited(reader)
+                                //console.log(sensorData)
+                            }
+                          })
+   
+
                         var file = files.file
                         numOfTransfeeredFiles++
                         console.log('saved file to', file.path)

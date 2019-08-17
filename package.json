@@ -6,6 +6,7 @@
   "scripts": {
     "start": "electron .",
     "postinstall": "electron-builder install-app-deps",
+    "generatePBS": "node ./node_modules/protobufjs/cli/bin/pbjs -t static-module -w commonjs -o sensordata.js proto/schema.proto",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -26,7 +27,9 @@
     "formidable": "^1.2.1",
     "node-notifier": "^5.4.1",
     "portfinder": "^1.0.21",
-    "sqlite3": "^4.0.9"
+    "protobufjs": "^6.8.8",
+    "sqlite3": "^4.0.9",
+    "zlib": "^1.0.5"
   },
   "devDependencies": {
     "electron-builder": "^21.2.0",

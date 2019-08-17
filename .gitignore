@@ -3,6 +3,8 @@ bower_components
 node_modules
 dist
 tmp
+export
+data
 
 #files
 *.tgz

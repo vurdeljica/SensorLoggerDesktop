@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "postinstall": "electron-builder install-app-deps",
-    "generatePBS": "node ./node_modules/protobufjs/cli/bin/pbjs -t static-module -w commonjs -o sensordata.js proto/schema.proto",
+    "generatePBS": "node ./node_modules/protobufjs/cli/bin/pbjs -t static-module -w commonjs -o sensordata.js proto/schema.proto --keep-case",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

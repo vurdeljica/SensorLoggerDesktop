@@ -12,13 +12,13 @@ const zlib = require('zlib');
 
 const {app, BrowserWindow, Menu, dialog} = electron;
 
-const UPLOADED_DB_PATH = "./data/data.sqlite"
 const EXPORT_DIRECTORY_NAME = "export"
 const EXPORT_DIRECTORY = "./" + EXPORT_DIRECTORY_NAME
 
 let mainWindow;
 let loadedDBPath = ""
 var fileTransferServer = undefined, sockets = {}, nextSocketId = 0
+var dbManager = null
 
 //emptyTmpDirectory();
 
@@ -282,9 +282,18 @@ ipc.on('publish-transfer-service', function(event) {
                         res.end('Hello World\n');
                         mainWindow.webContents.send('database-transfer-started');
                         numOfTransfeeredFiles = 0
+
+                        const DBCreationManager = require('./js/db-creation-manager')
+                        dbManager = new DBCreationManager()
                     } else if (!files.file) {
                         console.log('no file received')
                     } else {
+                        const data =  fileSystem.readFileSync(files.file.path, "utf8");
+                        try {
+                          var dailyActivitiesJSON = JSON.parse(data);
+                          dbManager.insertJSONarray(dailyActivitiesJSON);
+                          
+                        } catch(err) {   
                         const fileContents = fileSystem.createReadStream(files.file.path);
                         const writeStream = fileSystem.createWriteStream(files.file.path + 'unzip');
                         const unzip = zlib.createInflate();
@@ -294,12 +303,17 @@ ipc.on('publish-transfer-service', function(event) {
                             //console.log("drugi " + typeof fileSystem.readFileSync(files.file.path))
                             var fileContent = fileSystem.readFileSync(files.file.path + 'unzip');
                             var reader = protobuf.Reader.create(fileContent);
+                            var sensorDataBuffer = []
                             while(reader.pos < reader.len) {
                                 var sensorData = require('./sensordata.js').SensorData.decodeDelimited(reader)
+                                sensorData = fixInt64(sensorData)
+                                //dbManager.insertSensorData(sensorData)
+                                sensorDataBuffer.push(sensorData)
                                 //console.log(sensorData)
                             }
+                            dbManager.insertSensorData(sensorDataBuffer)
                           })
-   
+                        }
 
                         var file = files.file
                         numOfTransfeeredFiles++
@@ -307,6 +321,7 @@ ipc.on('publish-transfer-service', function(event) {
                         console.log('original name', file.name)
                         console.log('type', file.type)
                         console.log('size', file.size)
+                        
                         res.statusCode = 200;
                         res.setHeader('Content-Type', 'text/plain');
                         res.end('Hello World\n');
@@ -337,6 +352,18 @@ ipc.on('publish-transfer-service', function(event) {
     });
     
 })
+
+var fixInt64 = function(obj) {
+    for(var key in obj) {
+        if(typeof obj[key] === 'object'){
+            fixInt64(obj[key]);
+        }
+        if(obj[key] instanceof protobuf.util.Long){
+            obj[key] = obj[key].toNumber();
+        }
+    }
+    return obj;
+}
 
 function getLocalWifiIpAddress() {
     var os = require('os');

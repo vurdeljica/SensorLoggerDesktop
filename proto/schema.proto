@@ -1,7 +1,23 @@
 syntax = "proto3";
 
 message SensorData {
-    float num1 = 1;
-    float num2 = 2;
-    float num3 = 3;
+    int64 timestamp = 19;
+    float gps_latitude = 1;
+    float gps_longitude = 2;
+    float gps_accuracy = 3;
+    float gps_altitude = 4;
+    float heart_rate = 5;
+    int32 step_count = 6;
+    float acc1_x = 7;
+    float acc1_y = 8;
+    float acc1_z = 9;
+    float gyr1_x = 10;
+    float gyr1_y = 11;
+    float gyr1_z = 12;
+    float acc2_x = 13;
+    float acc2_y = 14;
+    float acc2_z = 15;
+    float gyr2_x = 16;
+    float gyr2_y = 17;
+    float gyr2_z = 18;
 }

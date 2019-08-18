@@ -46,7 +46,7 @@
         </div>
     </div>
 
-    <div class="panel panel-info" id="dropzone" onclick="dropzoneClick(this)">
+    <div class="panel panel-info" id="dropzone" ondrop="drop(event)" ondragover="allowDrop(event)" onclick="dropzoneClick(this)">
         <div id="drop-text" class="panel-body">
             <b>Drop file here</b> to load content or click on this box to open file dialog.<br/>
 

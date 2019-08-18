@@ -186,6 +186,16 @@ function setIsLoading(isLoading) {
     }
 }
 
+function allowDrop(e) {
+    e.preventDefault();
+}
+
+function drop(e) {
+    var file = e.dataTransfer.files[0]
+    console.log(file)
+    loadDB(file.path)
+}
+
 function dropzoneClick() {
     //$("#dropzone-dialog").click();
     const options = {filters: [{name: 'Sqlite', extensions: ['sqlite', 'db'] }]}

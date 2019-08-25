@@ -429,8 +429,16 @@ function getLocalWifiIpAddress() {
     var ifaces = os.networkInterfaces();
     var address;
 
+    var wifiInterfaceName = "Wi-Fi"
+    if (process.platfrom == 'darwin') {
+        wifiInterfaceName = "en0"
+    }
+    else if (process.platform == 'linux') {
+        wifiInterfaceName = "eth"
+    }
+
     Object.keys(ifaces).forEach(function (ifname) {
-        if (!(ifname == "Wi-Fi"))
+        if (!(ifname == wifiInterfaceName))
             return;
 
         ifaces[ifname].forEach(function (iface) {

@@ -427,34 +427,25 @@ var fixInt64 = function(obj) {
 function getLocalWifiIpAddress() {
     var address = require('address');
 
-    // default interface 'eth' on linux, 'en' on osx.
-    var wifiInterfaceName = "Wi-Fi"
-    if (process.platfrom == 'darwin') {
-        wifiInterfaceName = "en0"
-    }
-    else if (process.platform == 'linux') {
-        wifiInterfaceName = "eth"
-    }
-    return address.ip(wifiInterfaceName);   // '192.168.0.2'
-
     var os = require('os');
     var ifaces = os.networkInterfaces();
     var address;
 
     var wifiInterfaceName = "Wi-Fi"
-    if (process.platfrom == 'darwin') {
+    if (process.platfrom === 'darwin') {
         wifiInterfaceName = "en0"
     }
-    else if (process.platform == 'linux') {
+    else if (process.platform === 'linux') {
         wifiInterfaceName = "eth"
     }
 
     Object.keys(ifaces).forEach(function (ifname) {
-        console.log(ifname)
-        if (!(ifname == wifiInterfaceName))
+        console.log(!(ifname === wifiInterfaceName), ifname, wifiInterfaceName)
+        if (!(ifname === wifiInterfaceName))
             return;
 
         ifaces[ifname].forEach(function (iface) {
+            console.log(('IPv4' !== iface.family || iface.internal !== false), iface.family, iface.internal)
             if ('IPv4' !== iface.family || iface.internal !== false) {
                 // skip over internal (i.e. 127.0.0.1) and non-ipv4 addresses
                 return;

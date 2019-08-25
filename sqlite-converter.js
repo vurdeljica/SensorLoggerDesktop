@@ -85,12 +85,12 @@ class SqliteConverter {
                                 }
 
                                 if (conversionType === "csv") {
-                                    await this.writeTableToCsv(tableData, rows[i].name + ".csv", outputPath);
+                                    await this.writeTableToCsv(tableData, rows[i].name + ".csv", outputPath, (offset === 0));
                                 }
                                 else if (conversionType == "json") {
                                     await this.writeTableToJson(tableData, rows[i].name + ".json", outputPath);
                                 }
-                                
+
                                 offset += numOfRows
                             }
                         }
@@ -125,11 +125,16 @@ class SqliteConverter {
         })
     }
 
-    writeTableToCsv(rows, filePath, outputPath) {
+    writeTableToCsv(rows, filePath, outputPath, shouldPrintHeader) {
         return new Promise( async (resolve, reject) => {
             try {
-                let columnNames = "\"" + Object.keys(rows.length ? rows[0] : []).join("\",\"") + "\"";
-                let csvData = columnNames + "\n";
+                let columnNames = ""
+                let csvData = ""
+
+                if (shouldPrintHeader) {
+                    columnNames = "\"" + Object.keys(rows.length ? rows[0] : []).join("\",\"") + "\"";
+                    csvData = columnNames + "\n";
+                }
 
                 rows.map( (row) => {
                     csvData = csvData + "\"" + Object.values(row).join("\",\"") + "\"" + "\n";

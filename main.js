@@ -14,6 +14,7 @@ const {app, BrowserWindow, Menu, dialog} = electron;
 
 const EXPORT_DIRECTORY_NAME = "export"
 const EXPORT_DIRECTORY = "./" + EXPORT_DIRECTORY_NAME
+const UPLOAD_DIRECTORY = "./upload"
 
 let mainWindow;
 let loadedDBPath = ""
@@ -22,21 +23,37 @@ var dbManager = null
 
 //emptyTmpDirectory();
 
-function emptyExportDirectory() {
-    fileSystem.readdir(EXPORT_DIRECTORY, (err, files) => {
-    if (err) throw err;
-
-    for (const file of files) {
-        fileSystem.unlink(path.join(EXPORT_DIRECTORY, file), err => {
+function emptyDirectory(directoryPath) {
+    fileSystem.readdir(directoryPath, (err, files) => {
         if (err) throw err;
-        });
-    }
+
+        for (const file of files) {
+            fileSystem.unlinkSync(path.join(directoryPath, file))
+        }
     });
+}
+
+function makeGraphdWindow() {
+    var graphWindow = new BrowserWindow({
+        webPreferences: {
+            nodeIntegration: true
+        },
+        minHeight: 700,
+        minWidth: 1100,
+        show: true
+    });
+
+    graphWindow.loadURL(url.format({
+        pathname: path.join(__dirname, 'graph.html'),
+        protocol:'file:',
+        slashes: true
+    }));
+
 }
 
 // Listen for app to be ready
 app.on('ready', function() {
-    emptyExportDirectory()
+    emptyDirectory(EXPORT_DIRECTORY)
 
     // Create new window
     mainWindow = new BrowserWindow({
@@ -48,7 +65,9 @@ app.on('ready', function() {
         show: false
     });
 
-    //mainWindow.on('close', emptyTmpDirectory)
+    mainWindow.on('close', function() {
+        emptyDirectory(UPLOAD_DIRECTORY);
+    });
 
     // Load html into window
     mainWindow.loadURL(url.format({
@@ -131,17 +150,18 @@ const mainMenuTemplate = [
                 label: 'Home',
                 click() {
                     loadedDBPath = ""
-                    bonjour.unpublishAll();
-                    if (typeof fileTransferServer !== "undefined") {
-                        fileTransferServer.close(function () { 
-                            console.log('Server closed!'); });
-                            // Destroy all open sockets
-                            for (var socketId in sockets) {
-                                console.log('socket', socketId, 'destroyed');
-                                sockets[socketId].destroy();
-                            }
-                    }
+                    closeServer();
                     mainWindow.webContents.send('show-home-page');
+                }
+            },
+            {
+                label: 'Visualize data',
+                click() {
+                    if (loadedDBPath === "") {
+                        return;
+                    }
+
+                    makeGraphdWindow();
                 }
             },
             {
@@ -255,6 +275,10 @@ function calculateDatabaseTransferProgress() {
     return Math.floor((numOfTransfeeredFiles/totalNumOfFiles) * 100);
 }
 
+ipc.on('get-database-path', (event, arg) => {
+    event.returnValue = loadedDBPath
+})
+
 ipc.on('database-file-path', (event, arg) => {
     loadedDBPath = arg;
 })
@@ -267,8 +291,11 @@ ipc.on('publish-transfer-service', function(event) {
            // if (req.url == '/upload' && req.method.toLowerCase() == 'post') {
                 // parse a file upload
                 var form = new formidable.IncomingForm();
+                form.uploadDir = UPLOAD_DIRECTORY
                 
                 form.parse(req, function(err, fields, files) {
+                    //console.log(req)
+                    console.log("")
                     
                     if (err) {
                         console.log('some error', err)
@@ -288,40 +315,59 @@ ipc.on('publish-transfer-service', function(event) {
                     } else if (!files.file) {
                         console.log('no file received')
                     } else {
-                        const data =  fileSystem.readFileSync(files.file.path, "utf8");
-                        try {
-                          var dailyActivitiesJSON = JSON.parse(data);
-                          dbManager.insertJSONarray(dailyActivitiesJSON);
-                          
-                        } catch(err) {   
-                        const fileContents = fileSystem.createReadStream(files.file.path);
-                        const writeStream = fileSystem.createWriteStream(files.file.path + 'unzip');
-                        const unzip = zlib.createInflate();
+                        console.log("Here " + files.file.type)
+                        var queryData = url.parse(req.url, true).query;
+                        const fileType = Number(queryData.fileType);
+                        console.log(typeof fileType)
 
-                        fileContents.pipe(unzip).pipe(writeStream).on('finish', (err) => {
-                            writeStream.close()
-                            //console.log("drugi " + typeof fileSystem.readFileSync(files.file.path))
-                            var fileContent = fileSystem.readFileSync(files.file.path + 'unzip');
-                            var reader = protobuf.Reader.create(fileContent);
-                            var sensorDataBuffer = []
-                            while(reader.pos < reader.len) {
-                                var sensorData = require('./sensordata.js').SensorData.decodeDelimited(reader)
-                                sensorData = fixInt64(sensorData)
-                                //dbManager.insertSensorData(sensorData)
-                                sensorDataBuffer.push(sensorData)
-                                //console.log(sensorData)
-                            }
-                            dbManager.insertSensorData(sensorDataBuffer)
-                          })
+                        if (fileType === 0) {
+                            const data =  fileSystem.readFileSync(files.file.path, "utf8");
+                            var dailyActivitiesJSON = JSON.parse(data);
+                            dbManager.insertJSONarray(dailyActivitiesJSON);
+                            numOfTransfeeredFiles++
                         }
+                        else {
+                            const fileContents = fileSystem.createReadStream(files.file.path);
+                            const writeStream = fileSystem.createWriteStream(files.file.path + 'unzip');
+                            const unzip = zlib.createInflate();
 
+                            fileContents.pipe(unzip).pipe(writeStream).on('finish', (err) => {
+                                writeStream.close()
+                                //console.log("drugi " + typeof fileSystem.readFileSync(files.file.path))
+                                var fileContent = fileSystem.readFileSync(files.file.path + 'unzip');
+                                var reader = protobuf.Reader.create(fileContent);
+                                var sensorDataBuffer = []
+                                while(reader.pos < reader.len) {
+                                    var sensorData;
+                                    if (fileType === 1) {
+                                        sensorData = require('./sensordata.js').MobileData.decodeDelimited(reader)
+                                    }
+                                    else if (fileType === 2) {
+                                        sensorData = require('./sensordata.js').DeviceData.decodeDelimited(reader)
+                                    }
+                                    sensorData = fixInt64(sensorData)
+                                    sensorDataBuffer.push(sensorData)
+                                }
+                                if (fileType === 1) {
+                                    dbManager.insertMobileSensorData(sensorDataBuffer)
+                                    //writeTableToCsv(sensorDataBuffer, 'mobile_sensor')
+                                }
+                                else if (fileType === 2) {
+                                    dbManager.insertDeviceSensorData(sensorDataBuffer)
+                                }
+                                numOfTransfeeredFiles++
+
+                                if (numOfTransfeeredFiles == totalNumOfFiles) {
+                                    closeServer();
+                                }
+                            })
+                        }
                         var file = files.file
-                        numOfTransfeeredFiles++
                         console.log('saved file to', file.path)
                         console.log('original name', file.name)
                         console.log('type', file.type)
                         console.log('size', file.size)
-                        
+                         
                         res.statusCode = 200;
                         res.setHeader('Content-Type', 'text/plain');
                         res.end('Hello World\n');
@@ -352,6 +398,19 @@ ipc.on('publish-transfer-service', function(event) {
     });
     
 })
+
+function closeServer() {
+    bonjour.unpublishAll();
+    if (typeof fileTransferServer !== "undefined") {
+        fileTransferServer.close(function () { 
+            console.log('Server closed!'); });
+            // Destroy all open sockets
+            for (var socketId in sockets) {
+                console.log('socket', socketId, 'destroyed');
+                sockets[socketId].destroy();
+            }
+    }
+}
 
 var fixInt64 = function(obj) {
     for(var key in obj) {

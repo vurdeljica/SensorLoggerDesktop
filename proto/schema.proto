@@ -1,23 +1,21 @@
 syntax = "proto3";
 
-message SensorData {
-    int64 timestamp = 19;
+message MobileData {
     float gps_latitude = 1;
     float gps_longitude = 2;
     float gps_accuracy = 3;
     float gps_altitude = 4;
     float heart_rate = 5;
     int32 step_count = 6;
-    float acc1_x = 7;
-    float acc1_y = 8;
-    float acc1_z = 9;
-    float gyr1_x = 10;
-    float gyr1_y = 11;
-    float gyr1_z = 12;
-    float acc2_x = 13;
-    float acc2_y = 14;
-    float acc2_z = 15;
-    float gyr2_x = 16;
-    float gyr2_y = 17;
-    float gyr2_z = 18;
+    int64 timestamp = 7;
+}
+
+message DeviceData {
+    string mac_address = 1;
+    float acc_x = 2;
+    float acc_y = 3;
+    float acc_z = 4;
+    float gyr_x = 5;
+    float gyr_y = 6;
+    float gyr_z = 7;
 }

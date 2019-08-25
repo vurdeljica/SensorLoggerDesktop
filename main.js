@@ -432,10 +432,10 @@ function getLocalWifiIpAddress() {
     var address;
 
     var wifiInterfaceName = "Wi-Fi"
-    if (process.platfrom === 'darwin') {
+    if (os.platfrom === 'darwin') {
         wifiInterfaceName = "en0"
     }
-    else if (process.platform === 'linux') {
+    else if (os.platform === 'linux') {
         wifiInterfaceName = "eth"
     }
 

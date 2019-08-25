@@ -425,6 +425,18 @@ var fixInt64 = function(obj) {
 }
 
 function getLocalWifiIpAddress() {
+    var address = require('address');
+
+    // default interface 'eth' on linux, 'en' on osx.
+    var wifiInterfaceName = "Wi-Fi"
+    if (process.platfrom == 'darwin') {
+        wifiInterfaceName = "en0"
+    }
+    else if (process.platform == 'linux') {
+        wifiInterfaceName = "eth"
+    }
+    return address.ip(wifiInterfaceName);   // '192.168.0.2'
+
     var os = require('os');
     var ifaces = os.networkInterfaces();
     var address;
@@ -438,6 +450,7 @@ function getLocalWifiIpAddress() {
     }
 
     Object.keys(ifaces).forEach(function (ifname) {
+        console.log(ifname)
         if (!(ifname == wifiInterfaceName))
             return;
 

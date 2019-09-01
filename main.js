@@ -15,13 +15,33 @@ const {app, BrowserWindow, Menu, dialog} = electron;
 const EXPORT_DIRECTORY_NAME = "export"
 const EXPORT_DIRECTORY = "./" + EXPORT_DIRECTORY_NAME
 const UPLOAD_DIRECTORY = "./upload"
+const DATA_DIRECTORY = "./data"
 
-let mainWindow;
+let mainWindow = null;
 let loadedDBPath = ""
 var fileTransferServer = undefined, sockets = {}, nextSocketId = 0
 var dbManager = null
 
-//emptyTmpDirectory();
+process.on("uncaughtException", (err) => {
+    // uncaught Exception will occur when user tries to force quit application while uploading database
+    const messageBoxOptions = {
+         type: "error",
+         title: "Error in Main process",
+         message: "Something failed"
+     };
+ });
+
+function initDirectoryStructure() {
+    if (!fileSystem.existsSync('./upload')) {
+        fileSystem.mkdirSync('./upload')
+    }
+    if (!fileSystem.existsSync('./export')) {
+        fileSystem.mkdirSync('./export')
+    }
+    if (!fileSystem.existsSync('./data')) {
+        fileSystem.mkdirSync('./data')
+    }
+}
 
 function emptyDirectory(directoryPath) {
     fileSystem.readdir(directoryPath, (err, files) => {
@@ -40,7 +60,7 @@ function makeGraphdWindow() {
         },
         minHeight: 700,
         minWidth: 1100,
-        show: true
+        show: false
     });
 
     graphWindow.loadURL(url.format({
@@ -49,11 +69,37 @@ function makeGraphdWindow() {
         slashes: true
     }));
 
+    graphWindow.setMenu(null)
+
+    graphWindow.webContents.on('did-finish-load', function() {
+        graphWindow.show();
+    });
+
+}
+
+function emptyAllDirectories() {
+    try {
+        if (dbManager != null) {
+            dbManager.close()
+        }
+
+        if (mainWindow != null) {
+            mainWindow.webContents.send('app-is-closing');
+        }
+
+        emptyDirectory(EXPORT_DIRECTORY)
+        emptyDirectory(UPLOAD_DIRECTORY)
+        emptyDirectory(DATA_DIRECTORY)
+    }
+    catch(err) {
+        console.log("Error ocurred while trying to delete directories")
+    }
 }
 
 // Listen for app to be ready
 app.on('ready', function() {
-    emptyDirectory(EXPORT_DIRECTORY)
+    initDirectoryStructure()
+    emptyAllDirectories()
 
     // Create new window
     mainWindow = new BrowserWindow({
@@ -66,7 +112,7 @@ app.on('ready', function() {
     });
 
     mainWindow.on('close', function() {
-        emptyDirectory(UPLOAD_DIRECTORY);
+        emptyAllDirectories()
     });
 
     // Load html into window
@@ -75,6 +121,8 @@ app.on('ready', function() {
         protocol:'file:',
         slashes: true
     }));
+
+    mainWindow.on('uncaughtException', function () { console.log("GEGEEGEGEGEGEG") })
 
     mainWindow.webContents.on('did-finish-load', function() {
         mainWindow.show();
@@ -179,9 +227,6 @@ const mainMenuTemplate = [
                 role: 'minimize'
             },
             {
-                role: 'reload'
-            },
-            {
                 role: 'close'
             }
         ]
@@ -195,12 +240,6 @@ function copyFile(source, destination) {
         }
       });
 }
-
-ipc.on('start-database-conversions', function(event) {
-    console.log("start-database-conversions");
-    exportDatabase("csv");
-    //exportDatabase("json");     
-})
 
 var isConversionStarted = false
 
@@ -327,40 +366,46 @@ ipc.on('publish-transfer-service', function(event) {
                             numOfTransfeeredFiles++
                         }
                         else {
-                            const fileContents = fileSystem.createReadStream(files.file.path);
-                            const writeStream = fileSystem.createWriteStream(files.file.path + 'unzip');
-                            const unzip = zlib.createInflate();
+                            try {
+                                const fileContents = fileSystem.createReadStream(files.file.path);
+                                const writeStream = fileSystem.createWriteStream(files.file.path + 'unzip');
+                                const unzip = zlib.createInflate();
 
-                            fileContents.pipe(unzip).pipe(writeStream).on('finish', (err) => {
-                                writeStream.close()
-                                //console.log("drugi " + typeof fileSystem.readFileSync(files.file.path))
-                                var fileContent = fileSystem.readFileSync(files.file.path + 'unzip');
-                                var reader = protobuf.Reader.create(fileContent);
-                                var sensorDataBuffer = []
-                                while(reader.pos < reader.len) {
-                                    var sensorData;
+                                fileContents.pipe(unzip).pipe(writeStream).on('finish', (err) => {
+                                    writeStream.close()
+                                    //console.log("drugi " + typeof fileSystem.readFileSync(files.file.path))
+                                    var fileContent = fileSystem.readFileSync(files.file.path + 'unzip');
+                                    var reader = protobuf.Reader.create(fileContent);
+                                    var sensorDataBuffer = []
+                                    while(reader.pos < reader.len) {
+                                        var sensorData;
+                                        if (fileType === 1) {
+                                            sensorData = require('./sensordata.js').MobileData.decodeDelimited(reader)
+                                        }
+                                        else if (fileType === 2) {
+                                            sensorData = require('./sensordata.js').DeviceData.decodeDelimited(reader)
+                                        }
+                                        sensorData = fixInt64(sensorData)
+                                        sensorDataBuffer.push(sensorData)
+                                    }
                                     if (fileType === 1) {
-                                        sensorData = require('./sensordata.js').MobileData.decodeDelimited(reader)
+                                        dbManager.insertMobileSensorData(sensorDataBuffer)
+                                        //writeTableToCsv(sensorDataBuffer, 'mobile_sensor')
                                     }
                                     else if (fileType === 2) {
-                                        sensorData = require('./sensordata.js').DeviceData.decodeDelimited(reader)
+                                        dbManager.insertDeviceSensorData(sensorDataBuffer)
                                     }
-                                    sensorData = fixInt64(sensorData)
-                                    sensorDataBuffer.push(sensorData)
-                                }
-                                if (fileType === 1) {
-                                    dbManager.insertMobileSensorData(sensorDataBuffer)
-                                    //writeTableToCsv(sensorDataBuffer, 'mobile_sensor')
-                                }
-                                else if (fileType === 2) {
-                                    dbManager.insertDeviceSensorData(sensorDataBuffer)
-                                }
-                                numOfTransfeeredFiles++
+                                    numOfTransfeeredFiles++
 
-                                if (numOfTransfeeredFiles == totalNumOfFiles) {
-                                    closeServer();
-                                }
-                            })
+                                    if (numOfTransfeeredFiles == totalNumOfFiles) {
+                                        dbManager.close();
+                                        closeServer();
+                                    }
+                                })
+                            }
+                            catch(err) {
+                                console.log("Error occured while receiving data on file: " + files.file.path)
+                            }
                         }
                         var file = files.file
                         console.log('saved file to', file.path)
@@ -431,11 +476,13 @@ function getLocalWifiIpAddress() {
     var ifaces = os.networkInterfaces();
     var address;
 
+    console.log (os.platform())
+
     var wifiInterfaceName = "Wi-Fi"
-    if (os.platfrom === 'darwin') {
+    if (os.platform() === 'darwin') {
         wifiInterfaceName = "en0"
     }
-    else if (os.platform === 'linux') {
+    else if (os.platform() === 'linux') {
         wifiInterfaceName = "eth"
     }
 
@@ -459,7 +506,7 @@ function getLocalWifiIpAddress() {
 }
 
 bonjour.find({ type: 'hap' }, function (service) {
-    console.log('Found an HTTP server:', service)
+    console.log(service)
     //console.log(service.referer.address)
 })
 

@@ -97,6 +97,10 @@ class DBCreationManager {
 
         insertMany(jsonArray)
     }
+
+    close() {
+        this.db.close()
+    }
 }
     
 module.exports = DBCreationManager;

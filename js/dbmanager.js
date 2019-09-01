@@ -67,5 +67,8 @@ class DBManager {
         return this.rowCounts[tableName]
     }
 
+    close() {
+        this.db.close()
+    }
 
 }

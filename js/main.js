@@ -24,7 +24,8 @@ ipc.on('show-home-page', function(event, arg) {
     $("#success-box").hide();
     $("#bottom-bar").hide();
     $("#dropzone").delay(50).animate({height: 497}, 500);
-
+    
+    databaseTransferInProgress = false
     databaseUploadProgressPercentage = 0;
     databaseErrorOccured = false
 })
@@ -107,6 +108,7 @@ $(window).resize(windowResize).scroll(positionFooter);
 $(".no-propagate").on("click", function (el) { el.stopPropagation(); });
 
 function loadDB(filePath) {
+    $("#drop-loading-message").html("Processing file ...")
     setIsLoading(true);
 
     resetTableList();
@@ -142,6 +144,7 @@ function loadDB(filePath) {
         $(".nouploadinfo").hide();
         $("#sample-db-link").hide();
         $("#dropzone").delay(50).animate({height: 50}, 500);
+        
         $("#success-box").show();
 
         setIsLoading(false);
@@ -193,20 +196,53 @@ function allowDrop(e) {
 function drop(e) {
     var file = e.dataTransfer.files[0]
     console.log(file)
-    loadDB(file.path)
+    databaseCheckAndLoad(file.path)
 }
 
 function dropzoneClick() {
     //$("#dropzone-dialog").click();
     const options = {filters: [{name: 'Sqlite', extensions: ['sqlite', 'db'] }]}
     dialog.showOpenDialog(null, options, (filePaths) => {
-        if(typeof filePaths !== "undefined") {
-            loadDB(filePaths[0])
+        if (filePaths !== "undefined") {
+            databaseCheckAndLoad(filePaths[0])
         }
     });
 }
 
+function databaseCheckAndLoad(filePath) {
+    if(databaseTransferInProgress) {
+        return;
+    }
+
+    if(typeof filePath !== "undefined") {
+        if(isSqliteFileType(filePath)) {
+            loadDB(filePath)
+        }
+        else {
+            showError("File is not sql database.");
+        }
+    }
+}
+
+function isSqliteFileType(filePath) {
+    const readChunk = require('read-chunk');
+    const fileType = require('file-type');
+    
+    const buffer = readChunk.sync(filePath, 0, fileType.minimumBytes);
+    
+    return ((typeof fileType(buffer) !== "undefined") && (fileType(buffer).ext === "sqlite"))
+}
+
 function doDefaultSelect(tableName) {
+    if (tableName === "daily_activities") {
+        $("#sql-editor").show()
+        $("#sql-run").show()
+    }
+    else {
+        $("#sql-editor").hide()
+        $("#sql-run").hide()
+    }
+
     var defaultSelect = "SELECT * FROM '" + tableName + "' LIMIT 0,30"
     editor.setValue(defaultSelect, -1);
     renderQuery(defaultSelect);
@@ -286,6 +322,12 @@ function getQueryRowCount(query) {
 
 function executeSql() {
     var query = editor.getValue();
+
+    if (dbManager.getTableNameFromQuery(query) !== "daily_activities") {
+        showError("Query can only be executed for daily_activities table");
+        return;
+    }
+
     renderQuery(query);
     $("#tables").select2("val", dbManager.getTableNameFromQuery(query));
 }
@@ -425,12 +467,14 @@ function transferFromMobileClick() {
 
 var databaseUploadProgressPercentage = 0;
 var databaseErrorOccured = false
+var databaseTransferInProgress = false;
 
 ipc.on('database-upload-status-percentage', function(event, arg) {
     databaseUploadProgressPercentage = arg
 })
 
 ipc.on('database-transfer-started', function(event, arg) {
+    databaseTransferInProgress = true
     databaseErrorOccured = false
     setTimeout(updateDatabaseTransferProgress, 1000);
 })
@@ -450,8 +494,14 @@ function updateDatabaseTransferProgress() {
         setTimeout(updateDatabaseTransferProgress, 1000);
     }
     else {
+        databaseTransferInProgress = false
         loadDB(UPLOADED_DB_PATH)
     }
 }
 
+ipc.on('app-is-closing', (event, arg) => {
+    if (dbManager != null) {
+        dbManager.close()
+    }
+})
 

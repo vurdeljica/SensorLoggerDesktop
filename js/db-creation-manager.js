@@ -62,7 +62,7 @@ class DBCreationManager {
                                                                 + 'gyr_x, gyr_y, gyr_z, '
                                                                 + 'heart_rate, step_count'
                                                                 + ') VALUES ('
-                                                                    + '?, ?'
+                                                                    + '?, ?, '
                                                                     + '?, ?, ?, '
                                                                     + '?, ?, ?, '
                                                                     + '?, ?'

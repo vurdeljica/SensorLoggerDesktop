@@ -6,7 +6,8 @@
   "scripts": {
     "start": "electron .",
     "postinstall": "electron-builder install-app-deps",
-    "generatePBS": "node ./node_modules/protobufjs/cli/bin/pbjs -t static-module -w commonjs -o sensordata.js proto/schema.proto --keep-case"
+    "generatePBS": "node ./node_modules/protobufjs/cli/bin/pbjs -t static-module -w commonjs -o sensordata.js proto/schema.proto --keep-case",
+    "makeExe": "electron-packager ./ sensorLogger"
   },
   "repository": {
     "type": "git",
@@ -27,6 +28,7 @@
     "chartjs-plugin-zoom": "^0.7.3",
     "dygraphs": "^2.1.0",
     "electron": "^5.0.6",
+    "electron-packager": "^14.0.5",
     "file-type": "^12.2.0",
     "formidable": "^1.2.1",
     "fstorm": "^0.1.3",

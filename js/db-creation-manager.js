@@ -16,14 +16,14 @@ class DBCreationManager {
                 timestamp NUMERIC,
                 gps_latitude REAL,
                 gps_longitude REAL,
-                gps_accuracy REAL,
-                gps_altitude REAL,
-                heart_rate REAL,
-                step_count NUMERIC
+                gps_altitude REAL
             );
 
             CREATE TABLE device_data (
-                mac_address TEXT,
+                node_id TEXT,
+                timestamp NUMERIC,
+                heart_rate NUMERIC,
+                step_count NUMERIC,
                 acc_x REAL,
                 acc_y REAL,
                 acc_z REAL,
@@ -45,18 +45,11 @@ class DBCreationManager {
     }
 
     insertMobileSensorData(mobileSensorDataBuffer) {
-        const insert = this.db.prepare('INSERT INTO mobile_data (timestamp, ' 
-                                                                + 'gps_latitude, gps_longitude, gps_accuracy, '
-                                                                + 'gps_altitude, heart_rate, step_count'
-                                                                + ') VALUES ('
-                                                                    + '?, ?, ?, '
-                                                                    + '?, ?, ?, '
-                                                                    + '?'
-                                                                + ')')
+        const insert = this.db.prepare('INSERT INTO mobile_data (timestamp, gps_latitude, gps_longitude, gps_altitude)'
+                                                                    + ' VALUES (?, ?, ?, ?)')
         const insertMany = this.db.transaction((data) => {
             for (const sensorData of data) {
-                insert.run(sensorData['timestamp'], sensorData['gps_latitude'],sensorData['gps_longitude'],sensorData['gps_accuracy'],
-                            sensorData['gps_altitude'],sensorData['heart_rate'],sensorData['step_count'])
+                insert.run(sensorData['timestamp'], sensorData['gps_latitude'], sensorData['gps_longitude'], sensorData['gps_altitude'])
             }
         });
 
@@ -64,19 +57,23 @@ class DBCreationManager {
     }
 
     insertDeviceSensorData(deviceSensorDataBuffer) {
-        const insert = this.db.prepare('INSERT INTO device_data (mac_address, ' 
+        const insert = this.db.prepare('INSERT INTO device_data (node_id, timestamp, ' 
                                                                 + 'acc_x, acc_y, acc_z, '
-                                                                + 'gyr_x, gyr_y, gyr_z'
+                                                                + 'gyr_x, gyr_y, gyr_z, '
+                                                                + 'heart_rate, step_count'
                                                                 + ') VALUES ('
+                                                                    + '?, ?'
                                                                     + '?, ?, ?, '
                                                                     + '?, ?, ?, '
-                                                                    + '?'
+                                                                    + '?, ?'
                                                                 + ')')
 
         const insertMany = this.db.transaction((data) => {
             for (const sensorData of data) {
-                insert.run(sensorData['mac_address'], sensorData['acc_x'],sensorData['acc_y'],sensorData['acc_z'],
-                            sensorData['gyr_x'],sensorData['gyr_y'],sensorData['gyr_z'])
+                insert.run(sensorData['node_id'], sensorData['timestamp'],
+                            sensorData['acc_x'], sensorData['acc_y'], sensorData['acc_z'],
+                            sensorData['gyr_x'], sensorData['gyr_y'], sensorData['gyr_z'], 
+                            sensorData['heart_rate'], sensorData['step_count'])
             }
         });
 

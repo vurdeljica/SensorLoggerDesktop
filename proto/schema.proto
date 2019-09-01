@@ -3,19 +3,19 @@ syntax = "proto3";
 message MobileData {
     float gps_latitude = 1;
     float gps_longitude = 2;
-    float gps_accuracy = 3;
-    float gps_altitude = 4;
-    float heart_rate = 5;
-    int32 step_count = 6;
-    int64 timestamp = 7;
+    float gps_altitude = 3;
+    int64 timestamp = 4;
 }
 
 message DeviceData {
-    string mac_address = 1;
+    string nodeId = 1;
     float acc_x = 2;
     float acc_y = 3;
     float acc_z = 4;
     float gyr_x = 5;
     float gyr_y = 6;
     float gyr_z = 7;
+    int32 step_count = 8;
+    int32 heart_rate = 9;
+    int64 timestamp = 10;
 }

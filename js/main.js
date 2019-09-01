@@ -386,12 +386,17 @@ function addRows(query) {
 
     var queryResults = dbManager.executeQuery(query)
 
-    for (const row of queryResults.iterate()) {
-        var tr = $('<tr>');
-        Object.keys(row).forEach(function(column,index) {
-            tr.append('<td><span title="' + htmlEncode(row[column]) + '">' + htmlEncode(row[column]) + '</span></td>');
-        });
-        tbody.append(tr);
+    try {
+        for (const row of queryResults.iterate()) {
+            var tr = $('<tr>');
+            Object.keys(row).forEach(function(column,index) {
+                tr.append('<td><span title="' + htmlEncode(row[column]) + '">' + htmlEncode(row[column]) + '</span></td>');
+            });
+            tbody.append(tr);
+        }
+    }
+    catch(err) {
+        queryResults.run()
     }
 }
 

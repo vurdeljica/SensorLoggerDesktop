@@ -29,6 +29,8 @@ process.on("uncaughtException", (err) => {
          title: "Error in Main process",
          message: "Something failed"
      };
+     
+     console.log(err)
  });
 
 function initDirectoryStructure() {

@@ -55,10 +55,11 @@ function emptyDirectory(directoryPath) {
     });
 }
 
-function makeGraphdWindow() {
+function makeGraphdWindow(windowTitle) {
     var graphWindow = new BrowserWindow({
         webPreferences: {
-            nodeIntegration: true
+            nodeIntegration: true,
+            additionalArguments: [windowTitle]
         },
         minHeight: 700,
         minWidth: 1100,
@@ -71,7 +72,7 @@ function makeGraphdWindow() {
         slashes: true
     }));
 
-    graphWindow.setMenu(null)
+    //graphWindow.setMenu(null)
 
     graphWindow.webContents.on('did-finish-load', function() {
         graphWindow.show();
@@ -123,8 +124,6 @@ app.on('ready', function() {
         protocol:'file:',
         slashes: true
     }));
-
-    mainWindow.on('uncaughtException', function () { console.log("GEGEEGEGEGEGEG") })
 
     mainWindow.webContents.on('did-finish-load', function() {
         mainWindow.show();
@@ -200,19 +199,29 @@ const mainMenuTemplate = [
                 label: 'Home',
                 click() {
                     loadedDBPath = ""
+                    clearDeviceSubmenu();
                     closeServer();
                     mainWindow.webContents.send('show-home-page');
                 }
             },
             {
                 label: 'Visualize data',
-                click() {
-                    if (loadedDBPath === "") {
-                        return;
-                    }
+                submenu : [
+                    {   
+                        label: "Mobile sensors",
+                        click() {
+                            if (loadedDBPath === "") {
+                                return;
+                            }
 
-                    makeGraphdWindow();
-                }
+                            makeGraphdWindow('mobile_data');
+                        }
+                    },
+                    {   
+                        label: "Device sensors",
+                        submenu: []
+                    }
+                ]
             },
             {
                 role: 'togglefullscreen'
@@ -234,6 +243,29 @@ const mainMenuTemplate = [
         ]
     }
 ];
+
+function addDeviceSubMenu(deviceList) {
+    deviceSubmenu = []
+    for(var i = 0; i < deviceList.length; i++) {
+        const name = deviceList[i]
+        deviceSubmenu.push({ label: name, click() {
+            if (loadedDBPath === "") {
+                return;
+            }
+            makeGraphdWindow(name)
+        } })
+    }
+
+    mainMenuTemplate[1].submenu[1].submenu[1].submenu = deviceSubmenu
+    const mainMenu = Menu.buildFromTemplate(mainMenuTemplate);
+    Menu.setApplicationMenu(mainMenu);
+}
+
+function clearDeviceSubmenu() {
+    mainMenuTemplate[1].submenu[1].submenu[1].submenu = []
+    const mainMenu = Menu.buildFromTemplate(mainMenuTemplate);
+    Menu.setApplicationMenu(mainMenu);
+}
 
 function copyFile(source, destination) {
     fileSystem.copyFile(source, destination, (err) => {
@@ -265,7 +297,7 @@ function exportDatabase(exportType) {
                 .setLogPath(logPath);
 
     if (exportType === "csv") {
-        sqliteConverter.convertToCSV().then( (result) => {
+        sqliteConverter.convertToCSV().then((result) => {
             notifyConversionIsDone()
             isConversionStarted = false
         }).catch((err) => {
@@ -274,7 +306,7 @@ function exportDatabase(exportType) {
         });
     }
     else if (exportType === "json") {
-        sqliteConverter.convertToJson().then( (result) => {
+        sqliteConverter.convertToJson().then((result) => {
             notifyConversionIsDone()
             isConversionStarted = false
         }).catch((err) => {
@@ -322,6 +354,14 @@ ipc.on('get-database-path', (event, arg) => {
 
 ipc.on('database-file-path', (event, arg) => {
     loadedDBPath = arg;
+    db = require('better-sqlite3')(loadedDBPath);
+    device_id = []
+    node_ids = db.prepare('SELECT node_id FROM device_data GROUP BY node_id').all()
+    for (i = 0; i < node_ids.length; i++) {
+        device_id.push(node_ids[i].node_id)
+    }
+    db.close()
+    addDeviceSubMenu(device_id)
 })
 
 ipc.on('publish-transfer-service', function(event) {

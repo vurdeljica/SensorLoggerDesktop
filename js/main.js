@@ -320,13 +320,20 @@ function getQueryRowCount(query) {
     }
 }
 
-function executeSql() {
+function executeQueryForNextPage() {
     var query = editor.getValue();
 
     if (dbManager.getTableNameFromQuery(query) !== "daily_activities") {
         showError("Query can only be executed for daily_activities table");
         return;
     }
+
+    renderQuery(query);
+    $("#tables").select2("val", dbManager.getTableNameFromQuery(query));
+}
+
+function executeSql() {
+    var query = editor.getValue();
 
     renderQuery(query);
     $("#tables").select2("val", dbManager.getTableNameFromQuery(query));

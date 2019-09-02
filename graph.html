@@ -1,6 +1,41 @@
 <!DOCTYPE html>
-<canvas id="sensorGraph" style="cursor: grab"></canvas>
+<html lang="en">
+<head>
+    <link rel="stylesheet" type="text/css" href="css/main.css"/>
+    <meta charset="utf-8">
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/select2.css" rel="stylesheet">
+    <link href="css/select2-bootstrap.css" rel="stylesheet">
+    <link href="css/main.css" rel="stylesheet">
+    <link href="css/ribbons.min.css" rel="stylesheet">
+</head>
+<body style="background-color:#FFFFFF;">
+
+
+<div id="graph-loading" class="panel-body" style="position: absolute;
+                                                    top: 50%;
+                                                    left: 46%;
+                                                    margin-top: -50px;
+                                                    margin-left: -50px;
+                                                    width: 200px;
+                                                    height: 100px;">
+    <span class="glyphicon glyphicon-refresh glyphicon-refresh-animate"></span> <b>Rendering graph ...</b>
+</div>
+
+
+<div id="graph" class="panel-body" style="display: none"></div>
+    <canvas id="sensorGraph" style="cursor: grab"></canvas>
+</div>
+
+</body>
+
 <!--<div id="graphdiv"></div>-->
+<script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>  
+<script src="js/jquery-1.11.3.min.js"></script>
+<script src="js/filereader.js"></script>
+<script src="js/select2.min.js"></script>
+<script src="js/ace/ace.js"></script>
+<script src="js/bootstrap.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@0.7.3"></script>

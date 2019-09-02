@@ -8,7 +8,7 @@ message MobileData {
 }
 
 message DeviceData {
-    string nodeId = 1;
+    string node_id = 1;
     float acc_x = 2;
     float acc_y = 3;
     float acc_z = 4;

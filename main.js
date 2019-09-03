@@ -72,7 +72,7 @@ function makeGraphdWindow(windowTitle) {
         slashes: true
     }));
 
-    //graphWindow.setMenu(null)
+    graphWindow.setMenu(null)
 
     graphWindow.webContents.on('did-finish-load', function() {
         graphWindow.show();

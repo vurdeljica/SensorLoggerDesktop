@@ -4,6 +4,9 @@ const Chart = require("chart.js")
 const chart_zoom = require("chartjs-plugin-zoom")
 const Dygraph = require("dygraphs")
 
+var Highcharts = require('highcharts/highstock');
+require('highcharts/modules/exporting')(Highcharts);
+
 const databasePath = ipc.sendSync('get-database-path')
 var db = require('better-sqlite3')(databasePath)
 
@@ -22,9 +25,10 @@ function setIsLoading(isLoading) {
 
 setIsLoading(true)
 
+var dataPreparedForGraph = []
+var tableName = window.process.argv[window.process.argv.length - 1]
+var timestamp_label = []
 setTimeout(function () {
-
-  var tableName = window.process.argv[window.process.argv.length - 1]
 
   var stmtData = null
 
@@ -45,7 +49,6 @@ setTimeout(function () {
   // calculate threePointInterval
 
   var dataset = {};
-  var timestamp_label = []
 
   var threePointAllSensors = {}
 
@@ -57,9 +60,9 @@ setTimeout(function () {
       if (shouldGatherColumnData) {
         for (const name of columnNames) {
             dataset[name] = []
-            threePointAllSensors[name] = {min: { x: data[i]['timestamp'], y: data[i][name] }, 
-                                          max: { x: data[i]['timestamp'], y: data[i][name] }, 
-                                          med: { x: data[i]['timestamp'], y: data[i][name] }, 
+            threePointAllSensors[name] = {min: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
+                                          max: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
+                                          med: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
                                           sum: 0}
         }
         shouldGatherColumnData = false;
@@ -70,18 +73,18 @@ setTimeout(function () {
 
           if (data[i][name] > threePointAllSensors[name].max.y) {
             threePointAllSensors[name].max.y = data[i][name];
-            threePointAllSensors[name].max.x = data[i]['timestamp'];
+            threePointAllSensors[name].max.x = new Date(data[i]['timestamp']);
           }
           else if (data[i][name] < threePointAllSensors[name].min.y) {
             threePointAllSensors[name].min.y = data[i][name];
-            threePointAllSensors[name].min.x = data[i]['timestamp'];
+            threePointAllSensors[name].min.x = new Date(data[i]['timestamp']);
           }
 
       }
 
       if (i !== 0 && (i % threePointInterval) === 0) {
         //timestamp_label.push(new Date(data[i]['timestamp']).toLocaleString())
-        timestamp_label.push(data[i]['timestamp'])
+        timestamp_label.push(new Date(data[i]['timestamp']))
 
         const columnNames = Object.keys(data[i])
         for (const name of columnNames) {
@@ -98,7 +101,7 @@ setTimeout(function () {
               } 
             }
           
-            threePointAllSensors[name].med.x = data[medianValue.index]['timestamp']
+            threePointAllSensors[name].med.x = new Date(data[medianValue.index]['timestamp'])
             threePointAllSensors[name].med.y = medianValue.value
 
             var tmp = []
@@ -106,13 +109,15 @@ setTimeout(function () {
             tmp.push(threePointAllSensors[name].max);
             tmp.push(threePointAllSensors[name].med);
             tmp.sort((a, b) => (a.x > b.x) ? 1 : -1)
+            
+            
             for (var k = 0; k < tmp.length; k++) {
-              dataset[name].push(tmp[k])
+              dataset[name].push([tmp[k].x, tmp[k].y])
             }
 
-            threePointAllSensors[name] = {min: { x: data[i]['timestamp'], y: data[i][name] }, 
-                                          max: { x: data[i]['timestamp'], y: data[i][name] }, 
-                                          med: { x: data[i]['timestamp'], y: data[i][name] }, 
+            threePointAllSensors[name] = {min: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
+                                          max: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
+                                          med: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
                                           sum: 0}
         }
       }
@@ -120,149 +125,100 @@ setTimeout(function () {
       
   }
 
-  var dataPreparedForGraph = []
-
-  var x_axis = [{
-    type: 'time',
-    display: true,
-    ticks: {
-      beginAtZero: false
-    },
-    time: {
-        displayFormats: {
-            quarter: 'MMM YYYY'
-        }
-    }
-  }]
-
   const sensors = Object.keys(dataset)
   for (const sensorDataLabel of sensors) {
       if((sensorDataLabel === "timestamp") || (sensorDataLabel === "node_id")) continue;
       var graphDataEntry = {
+          "showInLegend":true,
           "data": dataset[sensorDataLabel],
-          "label": sensorDataLabel,
-          "borderColor": generateRandomColor(),
-          "fill": false,
-          "id": sensorDataLabel
+          "name": sensorDataLabel
       }
-
-      x_axis.push({
-        id: sensorDataLabel,
-        ticks: {
-          beginAtZero: false
-        },
-        type: 'linear',
-        time: {
-          displayFormats: {
-              quarter: 'MMM YYYY'
-          }
-        },
-        position: 'bottom',
-        display: false
-      })
 
       dataPreparedForGraph.push(graphDataEntry)
   }
 
-
-  var ch = new Chart(document.getElementById("sensorGraph"), {
-      type: 'scatter',
-      data: {
-        labels: timestamp_label,
-        datasets: dataPreparedForGraph
-      },
-      options: {
-        title: {
-          display: true,
-          text: tableName
-        },
-        scales: {
-        xAxes: x_axis
-      },
-      animation: {
-        duration: 0 // general animation time
-      },
-      hover: {
-          animationDuration: 0 // duration of animations when hovering an item
-      },
-      responsiveAnimationDuration: 0, // animation duration after a resize
-      elements: {
-              line: {
-                  tension: 0 // disables bezier curves
-              },
-              point: {
-                radius: 1
-              }
-          },
-      showLines: false, // disable for all datasets. Use false in case performance is very bad.
-      plugins: {
-            zoom: {
-              // Container for pan options
-              pan: {
-                  // Boolean to enable panning
-                  enabled: true,
-      
-                  // Panning directions. Remove the appropriate direction to disable
-                  // Eg. 'y' would only allow panning in the y direction
-                  mode: 'xy',
-      
-                  rangeMin: {
-                      // Format of min pan range depends on scale type
-                      x: null,
-                      y: null
-                  },
-                  rangeMax: {
-                      // Format of max pan range depends on scale type
-                      x: null,
-                      y: null
-                  },
-              },
-      
-              // Container for zoom options
-              zoom: {
-                  // Boolean to enable zooming
-                  enabled: true,
-      
-                  // Enable drag-to-zoom behavior
-                  drag: false,
-      
-                  // Drag-to-zoom rectangle style can be customized
-                  // drag: {
-                  // 	 borderColor: 'rgba(225,225,225,0.3)'
-                  // 	 borderWidth: 5,
-                  // 	 backgroundColor: 'rgb(225,225,225)'
-                  // },
-      
-                  // Zooming directions. Remove the appropriate direction to disable
-                  // Eg. 'y' would only allow zooming in the y direction
-                  mode: 'xy',
-      
-                  rangeMin: {
-                      // Format of min zoom range depends on scale type
-                      x: null,
-                      y: null
-                  },
-                  rangeMax: {
-                      // Format of max zoom range depends on scale type
-                      x: null,
-                      y: null
-                  },
-      
-                  // Speed of zoom via mouse wheel
-                  // (percentage of zoom on a wheel event)
-                  speed: 0.3,
-              }
-            }
-          }
-      }
-    });
-
-    setIsLoading(false)
+  createChart()
+  setIsLoading(false)
 
 }, 100);
 
+ 
 
+/**
+ * Create the chart when all data is loaded
+ * @returns {undefined}
+ */
+function createChart() {
+  Highcharts.setOptions({
+      global: {
+          useUTC: false
+      }
+  });
 
-function generateRandomColor() {
-    return '#'+(Math.random()*0xFFFFFF<<0).toString(16);
+  Highcharts.stockChart('graph', {
+    chart: {
+        type: 'scatter',
+        zoomType: 'x',
+        panning: true,
+        panKey: 'shift'
+    },
+    title: {
+        text: tableName
+    },
+    legend: {
+      enabled: true
+    },
+    xAxis: {
+        type: 'datetime',
+        dateTimeLabelFormats: {
+            month: '%e. %b',
+            year: '%b'
+        },
+        title: {
+            text: 'Date'
+        },
+        min: timestamp_label[0].getTime(),
+        max: timestamp_label[timestamp_label.length - 1].getTime(),
+        minRange: 3600
+    },
+    yAxis: {
+        title: {
+            text: 'Sensor value'
+        }
+    },
+    tooltip: {
+        headerFormat: '<b>{series.name}</b><br>',
+        pointFormat: '{point.x:%e. %b}: {point.y:.2f} m'
+    },
+    plotOptions: {
+      columnrange: {
+        grouping: true
+      },
+      series: {
+        marker: {
+          enabled: true
+        },
+      },
+    },
+    rangeSelector: {
+      enabled: true,
+      inputEnabled: true,
+      allButtonsEnabled: true,
+      buttons: [{
+          type: 'hour',
+          count: 1,
+          text: 'hour'
+      },{
+          type: 'day',
+          count: 1,
+          text: 'day'
+      }, {
+          type: 'week',
+          count: 1,
+          text: 'week'
+      }],
+      selected: 1
+    },
+    series: dataPreparedForGraph
+  });
 }

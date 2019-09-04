@@ -551,11 +551,3 @@ bonjour.find({ type: 'hap' }, function (service) {
     console.log(service)
     //console.log(service.referer.address)
 })
-
-//function function2() {
-//    bonjour.unpublishAll();
-//}
-
-
-// call the rest of the code and have it execute after 3 seconds
-//setTimeout(function2, 10000);

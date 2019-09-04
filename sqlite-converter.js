@@ -77,6 +77,7 @@ class SqliteConverter {
                         for(let i = 0; i<rows.length; i++) {
                             var offset = 0;
                             var numOfRows = 50000;
+                            var index = 0
                             while (true) {
                                 var tableData = await this.readRowsFromTable(rows[i].name, offset, numOfRows);
 
@@ -85,12 +86,13 @@ class SqliteConverter {
                                 }
 
                                 if (conversionType === "csv") {
-                                    await this.writeTableToCsv(tableData, rows[i].name + ".csv", outputPath, (offset === 0));
+                                    await this.writeTableToCsv(tableData, rows[i].name + index + ".csv", outputPath, (offset === 0));
                                 }
                                 else if (conversionType == "json") {
-                                    await this.writeTableToJson(tableData, rows[i].name + ".json", outputPath);
+                                    await this.writeTableToJson(tableData, rows[i].name + index + ".json", outputPath);
                                 }
 
+                                index++
                                 offset += numOfRows
                             }
                         }
@@ -131,18 +133,14 @@ class SqliteConverter {
                 let columnNames = ""
                 let csvData = ""
 
-                if (shouldPrintHeader) {
-                    columnNames = "\"" + Object.keys(rows.length ? rows[0] : []).join("\",\"") + "\"";
-                    csvData = columnNames + "\n";
-                }
-
+                columnNames = "\"" + Object.keys(rows.length ? rows[0] : []).join("\",\"") + "\"";
+                csvData = columnNames + "\n";
                 rows.map( (row) => {
                     csvData = csvData + "\"" + Object.values(row).join("\",\"") + "\"" + "\n";
                 });
-                
-                let fs = require('fs');
-
-                fs.appendFile(outputPath + "/" + filePath, csvData, (err) => {
+            
+                let fs = require('fs')
+                fs.writeFile(outputPath + "/" + filePath, csvData, (err) => {
                     if(err) {
                         reject("ERR104 :: Failed to write to " + outputPath + "/" + filePath);
                     }

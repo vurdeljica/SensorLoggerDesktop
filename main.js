@@ -281,8 +281,9 @@ function exportDatabase(exportType) {
     if (isConversionStarted) {
         notifyUser("Can not start new conversion. Conversion is already in progress!")
         return
-    } 
+    }
 
+    emptyDirectory(EXPORT_DIRECTORY)
     notifyUser("Conversion started!")
 
     isConversionStarted = true

@@ -410,34 +410,7 @@ ipc.on('publish-transfer-service', function(event) {
                         }
                         else {
                             try {
-                                const fileContents = fileSystem.createReadStream(files.file.path);
-                                const writeStream = fileSystem.createWriteStream(files.file.path + 'unzip');
-                                const unzip = zlib.createInflate();
-
-                                fileContents.pipe(unzip).pipe(writeStream).on('finish', (err) => {
-                                    writeStream.close()
-                                    //console.log("drugi " + typeof fileSystem.readFileSync(files.file.path))
-                                    var fileContent = fileSystem.readFileSync(files.file.path + 'unzip');
-                                    var reader = protobuf.Reader.create(fileContent);
-                                    var sensorDataBuffer = []
-                                    while(reader.pos < reader.len) {
-                                        var sensorData;
-                                        if (fileType === 1) {
-                                            sensorData = require('./sensordata.js').MobileData.decodeDelimited(reader)
-                                        }
-                                        else if (fileType === 2) {
-                                            sensorData = require('./sensordata.js').DeviceData.decodeDelimited(reader)
-                                        }
-                                        sensorData = fixInt64(sensorData)
-                                        sensorDataBuffer.push(sensorData)
-                                    }
-                                    if (fileType === 1) {
-                                        dbManager.insertMobileSensorData(sensorDataBuffer)
-                                        //writeTableToCsv(sensorDataBuffer, 'mobile_sensor')
-                                    }
-                                    else if (fileType === 2) {
-                                        dbManager.insertDeviceSensorData(sensorDataBuffer)
-                                    }
+                                decompress(files.file.path, fileType).then(() => {
                                     numOfTransfeeredFiles++
 
                                     if (numOfTransfeeredFiles == totalNumOfFiles) {
@@ -486,6 +459,51 @@ ipc.on('publish-transfer-service', function(event) {
     });
     
 })
+
+function decompress(filePath, fileType) {
+    return new Promise( (resolve, reject) => { 
+        const fileContents = fileSystem.createReadStream(filePath);
+        const writeStream = fileSystem.createWriteStream(filePath + 'unzip');
+        const unzip = zlib.createInflate();
+    
+        fileContents.pipe(unzip).pipe(writeStream).on('finish', (err) => {
+            writeStream.close()
+            if(err) {
+                reject("Failed to decompress file: " + filePath);
+            }
+            else {
+                deserialize(filePath, fileType)
+                resolve({
+                    code : 200,
+                    message : "Decompression success"
+                });
+            }
+        });
+    })
+}
+
+function deserialize(filePath, fileType) {
+    var fileContent = fileSystem.readFileSync(filePath + 'unzip');
+    var reader = protobuf.Reader.create(fileContent);
+    var sensorDataBuffer = []
+    while(reader.pos < reader.len) {
+        var sensorData;
+        if (fileType === 1) {
+            sensorData = require('./sensordata.js').MobileData.decodeDelimited(reader)
+        }
+        else if (fileType === 2) {
+            sensorData = require('./sensordata.js').DeviceData.decodeDelimited(reader)
+        }
+        sensorData = fixInt64(sensorData)
+        sensorDataBuffer.push(sensorData)
+    }
+    if (fileType === 1) {
+        dbManager.insertMobileSensorData(sensorDataBuffer)
+    }
+    else if (fileType === 2) {
+        dbManager.insertDeviceSensorData(sensorDataBuffer)
+    }
+}
 
 function closeServer() {
     bonjour.unpublishAll();

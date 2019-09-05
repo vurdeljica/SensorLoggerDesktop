@@ -79,7 +79,6 @@ class SqliteConverter {
                             var numOfRows = 100000;
                             var index = 0
                             var numOfJobs = Math.ceil((await this.numberOfRowsFromTable(rows[i].name))[0].cnt / numOfRows)
-                            console.log(numOfJobs)
                             while (index < numOfJobs) {
                                 const tmp_index = index;
                                 this.readRowsFromTable(rows[i].name, offset, numOfRows).then(tableData => {

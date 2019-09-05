@@ -76,21 +76,24 @@ class SqliteConverter {
 
                         for(let i = 0; i<rows.length; i++) {
                             var offset = 0;
-                            var numOfRows = 50000;
+                            var numOfRows = 100000;
                             var index = 0
-                            while (true) {
-                                var tableData = await this.readRowsFromTable(rows[i].name, offset, numOfRows);
-
-                                if(Object.entries(tableData).length === 0) {
-                                    break; // no more data to be read
-                                }
-
-                                if (conversionType === "csv") {
-                                    await this.writeTableToCsv(tableData, rows[i].name + index + ".csv", outputPath, (offset === 0));
-                                }
-                                else if (conversionType == "json") {
-                                    await this.writeTableToJson(tableData, rows[i].name + index + ".json", outputPath);
-                                }
+                            var numOfJobs = Math.ceil((await this.numberOfRowsFromTable(rows[i].name))[0].cnt / numOfRows)
+                            console.log(numOfJobs)
+                            while (index < numOfJobs) {
+                                const tmp_index = index;
+                                this.readRowsFromTable(rows[i].name, offset, numOfRows).then(tableData => {
+                                    if(Object.entries(tableData).length === 0) {
+                                        return; // no more data to be read
+                                    }
+    
+                                    if (conversionType === "csv") {
+                                        this.writeTableToCsv(tableData, rows[i].name + tmp_index + ".csv", outputPath, (offset === 0));
+                                    }
+                                    else if (conversionType == "json") {
+                                        this.writeTableToJson(tableData, rows[i].name + tmp_index + ".json", outputPath);
+                                    }
+                                })
 
                                 index++
                                 offset += numOfRows
@@ -122,6 +125,20 @@ class SqliteConverter {
                 }
                 else {
                     resolve(rows);
+                }
+            });
+        })
+    }
+
+    numberOfRowsFromTable(tableName) {
+        return new Promise( (resolve, reject) => { 
+            let db = this.db;
+            db.all("select count(*) as cnt from " + tableName, async (err, numOfRows) => {
+                if(err) {
+                    reject("Failed to execute query :: select * from " + tableName);
+                }
+                else {
+                    resolve(numOfRows);
                 }
             });
         })

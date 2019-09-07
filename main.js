@@ -365,6 +365,40 @@ ipc.on('database-file-path', (event, arg) => {
     addDeviceSubMenu(device_id)
 })
 
+ipc.on('load-database-from-folder', (event, arg) => {
+    const DBCreationManager = require('./js/db-creation-manager')
+    dbManager = new DBCreationManager()
+    numOfTransfeeredFiles = 0
+    const files = arg
+    totalNumOfFiles = files.length
+
+    event.sender.send('database-transfer-started');
+
+    for(var i = 0; i < totalNumOfFiles; i++) {
+        const filePath = files[i]
+        var fileType = 0;
+        if(filePath.indexOf("json") > -1) {
+            fileType = 0
+        }
+        else if(filePath.indexOf("mobile") > -1) {
+            fileType = 1
+        }
+        else if(filePath.indexOf("device") > -1) {
+            fileType = 2
+        }
+
+        decompress(filePath, fileType).then(() => {
+            numOfTransfeeredFiles++
+
+            if (numOfTransfeeredFiles == totalNumOfFiles) {
+                dbManager.close();
+            }
+        })
+    }
+    
+})
+
+var packetsId = -1
 ipc.on('publish-transfer-service', function(event) {
     console.log('publish-transfer-service')
 
@@ -381,10 +415,12 @@ ipc.on('publish-transfer-service', function(event) {
                     
                     if (err) {
                         console.log('some error', err)
+                        closeServer()
                         mainWindow.webContents.send('database-transfer-error');
                     } 
                     else if (!(Object.entries(fields).length === 0 && fields.constructor === Object)) {
                         totalNumOfFiles = fields['numOfFiles']
+                        packetsId = fields['id']
                         console.log(totalNumOfFiles)
                         res.statusCode = 200;
                         res.setHeader('Content-Type', 'text/plain');
@@ -393,10 +429,15 @@ ipc.on('publish-transfer-service', function(event) {
                         numOfTransfeeredFiles = 0
 
                         const DBCreationManager = require('./js/db-creation-manager')
+                        allJobsDone = []
                         dbManager = new DBCreationManager()
                     } else if (!files.file) {
                         console.log('no file received')
                     } else {
+                        var messageId = url.parse(req.url, true).query.id
+                        if (messageId !== packetsId)
+                            return;
+
                         console.log("Here " + files.file.type)
                         var queryData = url.parse(req.url, true).query;
                         const fileType = Number(queryData.fileType);
@@ -406,17 +447,20 @@ ipc.on('publish-transfer-service', function(event) {
                             const data =  fileSystem.readFileSync(files.file.path, "utf8");
                             var dailyActivitiesJSON = JSON.parse(data);
                             dbManager.insertJSONarray(dailyActivitiesJSON);
+
                             numOfTransfeeredFiles++
+                            
                         }
                         else {
                             try {
                                 decompress(files.file.path, fileType).then(() => {
                                     numOfTransfeeredFiles++
 
-                                    if (numOfTransfeeredFiles == totalNumOfFiles) {
-                                        dbManager.close();
+                                    if (numOfTransfeeredFiles === totalNumOfFiles) {
                                         closeServer();
+                                        dbManager.close();
                                     }
+
                                 })
                             }
                             catch(err) {
@@ -469,6 +513,7 @@ function decompress(filePath, fileType) {
         fileContents.pipe(unzip).pipe(writeStream).on('finish', (err) => {
             writeStream.close()
             if(err) {
+                console.log("Failed to decompress file: " + filePath)
                 reject("Failed to decompress file: " + filePath);
             }
             else {
@@ -503,6 +548,7 @@ function deserialize(filePath, fileType) {
     else if (fileType === 2) {
         dbManager.insertDeviceSensorData(sensorDataBuffer)
     }
+
 }
 
 function closeServer() {
@@ -531,13 +577,9 @@ var fixInt64 = function(obj) {
 }
 
 function getLocalWifiIpAddress() {
-    var address = require('address');
-
     var os = require('os');
     var ifaces = os.networkInterfaces();
     var address;
-
-    console.log (os.platform())
 
     var wifiInterfaceName = "Wi-Fi"
     if (os.platform() === 'darwin') {
@@ -548,14 +590,11 @@ function getLocalWifiIpAddress() {
     }
 
     Object.keys(ifaces).forEach(function (ifname) {
-        console.log(!(ifname === wifiInterfaceName), ifname, wifiInterfaceName)
         if (!(ifname === wifiInterfaceName))
             return;
 
         ifaces[ifname].forEach(function (iface) {
-            console.log(('IPv4' !== iface.family || iface.internal !== false), iface.family, iface.internal)
             if ('IPv4' !== iface.family || iface.internal !== false) {
-                // skip over internal (i.e. 127.0.0.1) and non-ipv4 addresses
                 return;
             }
 

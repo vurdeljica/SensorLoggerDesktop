@@ -83,7 +83,6 @@ setTimeout(function () {
       }
 
       if (i !== 0 && (i % threePointInterval) === 0) {
-        //timestamp_label.push(new Date(data[i]['timestamp']).toLocaleString())
         timestamp_label.push(new Date(data[i]['timestamp']))
 
         const columnNames = Object.keys(data[i])

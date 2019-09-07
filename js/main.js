@@ -201,12 +201,19 @@ function drop(e) {
 
 function dropzoneClick() {
     //$("#dropzone-dialog").click();
-    const options = {filters: [{name: 'Sqlite', extensions: ['sqlite', 'db'] }]}
+    const options = {filters: [{name: 'Sqlite', extensions: ['sqlite', 'db', 'txt']}], properties: ['openFile', 'multiSelections']}
+    //const options = {}
     dialog.showOpenDialog(null, options, (filePaths) => {
-        if (filePaths !== "undefined") {
+        if (filePaths !== "undefined" && filePaths.length === 1) {
             databaseCheckAndLoad(filePaths[0])
         }
+        else if (filePaths !== "undefined" && filePaths.length > 1) {
+            //var path = require('path');
+            //var parentDir = path.dirname(filePaths[0])
+            ipc.send('load-database-from-folder', filePaths)
+        }
     });
+
 }
 
 function databaseCheckAndLoad(filePath) {
@@ -493,7 +500,7 @@ ipc.on('database-transfer-started', function(event, arg) {
 
 ipc.on('database-transfer-error', function(event, arg) {
     databaseErrorOccured = true
-    $("#drop-loading-message").html("Error occured at " + databaseUploadProgressPercentage + "%. Please retry sending or go to home page.")
+    $("#drop-loading-message").html("Error occured at " + databaseUploadProgressPercentage + "%. Please go to home page and try again.")
 })
 
 function updateDatabaseTransferProgress() {
@@ -501,6 +508,7 @@ function updateDatabaseTransferProgress() {
 
     ipc.send('get-database-upload-status-percentage')
     $("#drop-loading-message").html("Database uploading(" + databaseUploadProgressPercentage + "%)...")
+    setIsLoading(true)
 
     if (databaseUploadProgressPercentage != 100) {
         setTimeout(updateDatabaseTransferProgress, 1000);

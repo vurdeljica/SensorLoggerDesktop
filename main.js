@@ -18,6 +18,7 @@ const UPLOAD_DIRECTORY = "./upload"
 const DATA_DIRECTORY = "./data"
 
 let mainWindow = null;
+let workerWindow = null;
 let loadedDBPath = ""
 var fileTransferServer = undefined, sockets = {}, nextSocketId = 0
 var dbManager = null
@@ -53,6 +54,23 @@ function emptyDirectory(directoryPath) {
             fileSystem.unlinkSync(path.join(directoryPath, file))
         }
     });
+}
+
+function makeHiddenWindow() {
+    workerWindow = new BrowserWindow({
+        webPreferences: {
+            nodeIntegration: true
+        },
+        minHeight: 700,
+        minWidth: 1100,
+        show: true
+    });
+
+    workerWindow.loadURL(url.format({
+        pathname: path.join(__dirname, 'workerWindow.html'),
+        protocol:'file:',
+        slashes: true
+    }));
 }
 
 function makeGraphdWindow(windowTitle) {
@@ -128,6 +146,8 @@ app.on('ready', function() {
     mainWindow.webContents.on('did-finish-load', function() {
         mainWindow.show();
     });
+
+    makeHiddenWindow()
 
     // Build menu from template
     const mainMenu = Menu.buildFromTemplate(mainMenuTemplate);
@@ -365,35 +385,51 @@ ipc.on('database-file-path', (event, arg) => {
     addDeviceSubMenu(device_id)
 })
 
+ipc.on('restoring-done', (event, arg) => {
+    numOfTransfeeredFiles++
+    const dataRestore = require("./dataRestore")
+    if (numOfTransfeeredFiles === totalNumOfFiles) {
+        dataRestore.finish();
+    }
+})
+
 ipc.on('load-database-from-folder', (event, arg) => {
-    const DBCreationManager = require('./js/db-creation-manager')
-    dbManager = new DBCreationManager()
     numOfTransfeeredFiles = 0
     const files = arg
     totalNumOfFiles = files.length
+    const dataRestore = require("./dataRestore")
 
     event.sender.send('database-transfer-started');
 
     for(var i = 0; i < totalNumOfFiles; i++) {
-        const filePath = files[i]
-        var fileType = 0;
-        if(filePath.indexOf("json") > -1) {
-            fileType = 0
+        const _filePath = files[i]
+        var _fileType = 0;
+        if(_filePath.indexOf("json") > -1) {
+            _fileType = 0
         }
-        else if(filePath.indexOf("mobile") > -1) {
-            fileType = 1
+        else if(_filePath.indexOf("mobile") > -1) {
+            _fileType = 1
         }
-        else if(filePath.indexOf("device") > -1) {
-            fileType = 2
+        else if(_filePath.indexOf("device") > -1) {
+            _fileType = 2
         }
 
-        decompress(filePath, fileType).then(() => {
+        if(i % 2 === 0) {
+            workerWindow.webContents.send('restore', [_filePath, _fileType]);
+            continue;
+        }
+        const fileType = _fileType
+        const filePath = _filePath
+
+        setTimeout(function () {
+            dataRestore.restore(filePath, fileType).then(() => {
             numOfTransfeeredFiles++
 
-            if (numOfTransfeeredFiles == totalNumOfFiles) {
-                dbManager.close();
+            if (numOfTransfeeredFiles === totalNumOfFiles) {
+                dataRestore.finish();
             }
         })
+        }, i * 20)
     }
     
 })
@@ -504,53 +540,6 @@ ipc.on('publish-transfer-service', function(event) {
     
 })
 
-function decompress(filePath, fileType) {
-    return new Promise( (resolve, reject) => { 
-        const fileContents = fileSystem.createReadStream(filePath);
-        const writeStream = fileSystem.createWriteStream(filePath + 'unzip');
-        const unzip = zlib.createInflate();
-    
-        fileContents.pipe(unzip).pipe(writeStream).on('finish', (err) => {
-            writeStream.close()
-            if(err) {
-                console.log("Failed to decompress file: " + filePath)
-                reject("Failed to decompress file: " + filePath);
-            }
-            else {
-                deserialize(filePath, fileType)
-                resolve({
-                    code : 200,
-                    message : "Decompression success"
-                });
-            }
-        });
-    })
-}
-
-function deserialize(filePath, fileType) {
-    var fileContent = fileSystem.readFileSync(filePath + 'unzip');
-    var reader = protobuf.Reader.create(fileContent);
-    var sensorDataBuffer = []
-    while(reader.pos < reader.len) {
-        var sensorData;
-        if (fileType === 1) {
-            sensorData = require('./sensordata.js').MobileData.decodeDelimited(reader)
-        }
-        else if (fileType === 2) {
-            sensorData = require('./sensordata.js').DeviceData.decodeDelimited(reader)
-        }
-        sensorData = fixInt64(sensorData)
-        sensorDataBuffer.push(sensorData)
-    }
-    if (fileType === 1) {
-        dbManager.insertMobileSensorData(sensorDataBuffer)
-    }
-    else if (fileType === 2) {
-        dbManager.insertDeviceSensorData(sensorDataBuffer)
-    }
-
-}
-
 function closeServer() {
     bonjour.unpublishAll();
     if (typeof fileTransferServer !== "undefined") {
@@ -576,39 +565,7 @@ var fixInt64 = function(obj) {
     return obj;
 }
 
-function getLocalWifiIpAddress() {
-    var os = require('os');
-    var ifaces = os.networkInterfaces();
-    var address;
-
-    var wifiInterfaceName = "Wi-Fi"
-    if (os.platform() === 'darwin') {
-        wifiInterfaceName = "en0"
-    }
-    else if (os.platform() === 'linux') {
-        wifiInterfaceName = "eth"
-    }
-
-    Object.keys(ifaces).forEach(function (ifname) {
-        if (!(ifname === wifiInterfaceName))
-            return;
-
-        ifaces[ifname].forEach(function (iface) {
-            if ('IPv4' !== iface.family || iface.internal !== false) {
-                return;
-            }
-
-            address = iface.address
-        });
-    });
-
-    return address;
-}
-
 bonjour.find({ type: 'hap' }, function (service) {
     console.log(service)
     //console.log(service.referer.address)
-})
-
- 
-
+}) 

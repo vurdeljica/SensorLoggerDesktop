@@ -447,34 +447,34 @@ ipc.on('publish-transfer-service', function(event) {
                 form.parse(req, function(err, fields, files) {
                     //console.log(req)
                     console.log("")
-                    
                     if (err) {
-                        console.log('some error', err)
+                        console.log('some error ', err)
                         closeServer()
                         mainWindow.webContents.send('database-transfer-error');
                     } 
                     else if (!(Object.entries(fields).length === 0 && fields.constructor === Object)) {
-                        totalNumOfFiles = fields['numOfFiles']
+                        totalNumOfFiles = Number(fields['numOfFiles'])
                         packetsId = fields['id']
+                        numOfTransfeeredFiles = 0
                         console.log(totalNumOfFiles)
                         res.statusCode = 200;
                         res.setHeader('Content-Type', 'text/plain');
                         res.end('Hello World\n');
                         mainWindow.webContents.send('database-transfer-started');
-                        numOfTransfeeredFiles = 0
                         dataRestore.init(true)
                         workerWindow.webContents.send('initWorker');
                     } else if (!files.file) {
                         console.log('no file received')
                     } else {
                         var messageId = url.parse(req.url, true).query.id
-                        if (messageId !== packetsId)
+                        if (messageId !== packetsId) {
                             return;
+                        }
 
                         var queryData = url.parse(req.url, true).query;
                         const fileType = Number(queryData.fileType);
 ///////////////////////////////////////////////////////////
-                        if(fileType === 2) {
+                        if(fileType === 4) {
                             res.statusCode = 200;
                             res.setHeader('Content-Type', 'text/plain');
                             res.end('Hello World\n');
@@ -488,6 +488,7 @@ ipc.on('publish-transfer-service', function(event) {
                             if (numOfTransfeeredFiles === totalNumOfFiles) {
                                 closeServer();
                                 dataRestore.finish()
+                                workerWindow.webContents.send('finishWorker');
                             }
                         })
 
@@ -529,6 +530,7 @@ ipc.on('publish-transfer-service', function(event) {
 })
 
 function closeServer() {
+    console.log('Server closing...')
     bonjour.unpublishAll();
     if (typeof fileTransferServer !== "undefined") {
         fileTransferServer.close(function () { 

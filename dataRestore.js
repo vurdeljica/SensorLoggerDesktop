@@ -12,10 +12,11 @@ exports.init = function(shouldCreate) {
     dbManager = new DBCreationManager(shouldCreate);
 }
 
-exports.restore = function(filePath, fileType) {
+exports.restore = function(_filePath, _fileType) {
+    const filePath = _filePath;
+    const fileType = _fileType
     if (fileType === 0) {
-        return new Promise( (resolve, reject) => {
-            
+        return new Promise((resolve, reject) => {
             const data =  fileSystem.readFileSync(filePath, "utf8");
             var dailyActivitiesJSON = JSON.parse(data);
             dbManager.insertJSONarray(dailyActivitiesJSON);

@@ -6,11 +6,16 @@ const zlib = require('zlib');
 var exports = module.exports = {}
 
 const DBCreationManager = require('./js/db-creation-manager')
+var dbManager
+
+exports.init = function(shouldCreate) {
+    dbManager = new DBCreationManager(shouldCreate);
+}
 
 exports.restore = function(filePath, fileType) {
     if (fileType === 0) {
         return new Promise( (resolve, reject) => {
-            var dbManager = DBCreationManager.getInstance()
+            
             const data =  fileSystem.readFileSync(filePath, "utf8");
             var dailyActivitiesJSON = JSON.parse(data);
             dbManager.insertJSONarray(dailyActivitiesJSON);
@@ -24,6 +29,9 @@ exports.restore = function(filePath, fileType) {
     else {
         return decompress(filePath, fileType)
     }
+}
+exports.finish = function() {
+    dbManager.close()
 }
 
 function decompress(filePath, fileType) {
@@ -43,10 +51,7 @@ function decompress(filePath, fileType) {
     })
 }
 
-exports.finish = function() {
-    var dbManager = DBCreationManager.getInstance()
-    dbManager.close()
-}
+
 
 var stream = require('stream');
 var util = require('util');
@@ -60,7 +65,7 @@ function WMStrm(options) {
     return new WMStrm(options);
   }
   Writable.call(this, options); // init super
-  this.memStore = new Buffer(''); // empty
+  this.memStore = Buffer.from(''); // empty
 }
 util.inherits(WMStrm, Writable);
 
@@ -68,7 +73,7 @@ WMStrm.prototype._write = function (chunk, enc, cb) {
   // our memory store stores things in buffers
   var buffer = (Buffer.isBuffer(chunk)) ?
     chunk :  // already is Buffer use it
-    new Buffer(chunk, enc);  // string, convert
+    Buffer.from(chunk, enc);  // string, convert
 
   // concat to the buffer already there
   this.memStore = Buffer.concat([this.memStore, buffer]);
@@ -82,7 +87,6 @@ function deserialize(_fileData, _fileType) {
     const fileType = _fileType
     return new Promise( (resolve, reject) => { 
             var reader = protobuf.Reader.create(fileData);
-            var dbManager = DBCreationManager.getInstance()
             var sensorDataBuffer = []
             while(reader.pos < reader.len) {
                 var sensorData;

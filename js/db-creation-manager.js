@@ -3,15 +3,11 @@
 class DBCreationManager {
     static UPLOADED_DB_PATH = "./data/data.sqlite"
 
-    constructor() {
-        if (!!DBCreationManager.instance) {
-            return DBCreationManager.instance;
-        }
-
-        DBCreationManager.instance = this;
-    
+    constructor(shouldCreate) {
         this.db = require('better-sqlite3')(DBCreationManager.UPLOADED_DB_PATH)
-        this.createTables()
+
+        if (shouldCreate)
+            this.createTables()
 
         return this;
     }
@@ -111,11 +107,7 @@ class DBCreationManager {
 
     close() {
         this.db.close()
-        DBCreationManager.instance = null;
     }
 }
 
-var exports = module.exports = {}
-exports.getInstance = function() {
-    return (new DBCreationManager());
-};
+module.exports = DBCreationManager;

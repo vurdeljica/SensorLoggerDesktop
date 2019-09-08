@@ -7,8 +7,7 @@ var bonjour = require('bonjour-hap')();
 const portfinder = require('portfinder')
 const http = require('http');
 const formidable = require('formidable')
-const protobuf = require('protobufjs')
-const zlib = require('zlib');
+const dataRestore = require("./dataRestore")
 
 const {app, BrowserWindow, Menu, dialog} = electron;
 
@@ -21,7 +20,6 @@ let mainWindow = null;
 let workerWindow = null;
 let loadedDBPath = ""
 var fileTransferServer = undefined, sockets = {}, nextSocketId = 0
-var dbManager = null
 
 process.on("uncaughtException", (err) => {
     // uncaught Exception will occur when user tries to force quit application while uploading database
@@ -100,10 +98,6 @@ function makeGraphdWindow(windowTitle) {
 
 function emptyAllDirectories() {
     try {
-        if (dbManager != null) {
-            dbManager.close()
-        }
-
         if (mainWindow != null) {
             mainWindow.webContents.send('app-is-closing');
         }
@@ -387,9 +381,11 @@ ipc.on('database-file-path', (event, arg) => {
 
 ipc.on('restoring-done', (event, arg) => {
     numOfTransfeeredFiles++
-    const dataRestore = require("./dataRestore")
+
     if (numOfTransfeeredFiles === totalNumOfFiles) {
+        closeServer();
         dataRestore.finish();
+        workerWindow.webContents.send('finishWorker');
     }
 })
 
@@ -397,9 +393,10 @@ ipc.on('load-database-from-folder', (event, arg) => {
     numOfTransfeeredFiles = 0
     const files = arg
     totalNumOfFiles = files.length
-    const dataRestore = require("./dataRestore")
 
     event.sender.send('database-transfer-started');
+    workerWindow.webContents.send('initWorker');
+    dataRestore.init(true)
 
     for(var i = 0; i < totalNumOfFiles; i++) {
         const _filePath = files[i]
@@ -414,7 +411,8 @@ ipc.on('load-database-from-folder', (event, arg) => {
             _fileType = 2
         }
 
-        if(i % 2 === 0) {
+        //if(i % 2 === 1) {
+        if(_fileType === 2) {
             workerWindow.webContents.send('restore', [_filePath, _fileType]);
             continue;
         }
@@ -427,9 +425,10 @@ ipc.on('load-database-from-folder', (event, arg) => {
 
             if (numOfTransfeeredFiles === totalNumOfFiles) {
                 dataRestore.finish();
+                workerWindow.webContents.send('finishWorker');
             }
         })
-        }, i * 20)
+        }, i * 50)
     }
     
 })
@@ -463,10 +462,8 @@ ipc.on('publish-transfer-service', function(event) {
                         res.end('Hello World\n');
                         mainWindow.webContents.send('database-transfer-started');
                         numOfTransfeeredFiles = 0
-
-                        const DBCreationManager = require('./js/db-creation-manager')
-                        allJobsDone = []
-                        dbManager = new DBCreationManager()
+                        dataRestore.init(true)
+                        workerWindow.webContents.send('initWorker');
                     } else if (!files.file) {
                         console.log('no file received')
                     } else {
@@ -474,35 +471,26 @@ ipc.on('publish-transfer-service', function(event) {
                         if (messageId !== packetsId)
                             return;
 
-                        console.log("Here " + files.file.type)
                         var queryData = url.parse(req.url, true).query;
                         const fileType = Number(queryData.fileType);
-                        console.log(typeof fileType)
-
-                        if (fileType === 0) {
-                            const data =  fileSystem.readFileSync(files.file.path, "utf8");
-                            var dailyActivitiesJSON = JSON.parse(data);
-                            dbManager.insertJSONarray(dailyActivitiesJSON);
-
+///////////////////////////////////////////////////////////
+                        if(fileType === 2) {
+                            res.statusCode = 200;
+                            res.setHeader('Content-Type', 'text/plain');
+                            res.end('Hello World\n');
+                            workerWindow.webContents.send('restore', [files.file.path, fileType]);
+                            return;
+                        }
+//////////////////////////////////////////////////////////
+                        dataRestore.restore(files.file.path, fileType).then(() => {
                             numOfTransfeeredFiles++
-                            
-                        }
-                        else {
-                            try {
-                                decompress(files.file.path, fileType).then(() => {
-                                    numOfTransfeeredFiles++
 
-                                    if (numOfTransfeeredFiles === totalNumOfFiles) {
-                                        closeServer();
-                                        dbManager.close();
-                                    }
+                            if (numOfTransfeeredFiles === totalNumOfFiles) {
+                                closeServer();
+                                dataRestore.finish()
+                            }
+                        })
 
-                                })
-                            }
-                            catch(err) {
-                                console.log("Error occured while receiving data on file: " + files.file.path)
-                            }
-                        }
                         var file = files.file
                         console.log('saved file to', file.path)
                         console.log('original name', file.name)
@@ -553,16 +541,34 @@ function closeServer() {
     }
 }
 
-var fixInt64 = function(obj) {
-    for(var key in obj) {
-        if(typeof obj[key] === 'object'){
-            fixInt64(obj[key]);
-        }
-        if(obj[key] instanceof protobuf.util.Long){
-            obj[key] = obj[key].toNumber();
-        }
+
+function getLocalWifiIpAddress() {
+    var os = require('os');
+    var ifaces = os.networkInterfaces();
+    var address;
+
+    var wifiInterfaceName = "Wi-Fi"
+    if (os.platform() === 'darwin') {
+        wifiInterfaceName = "en0"
     }
-    return obj;
+    else if (os.platform() === 'linux') {
+        wifiInterfaceName = "eth"
+    }
+
+    Object.keys(ifaces).forEach(function (ifname) {
+        if (!(ifname === wifiInterfaceName))
+            return;
+
+        ifaces[ifname].forEach(function (iface) {
+            if ('IPv4' !== iface.family || iface.internal !== false) {
+                return;
+            }
+
+            address = iface.address
+        });
+    });
+
+    return address;
 }
 
 bonjour.find({ type: 'hap' }, function (service) {

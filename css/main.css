@@ -42,8 +42,8 @@ footer small a {
 }
 
 #header {
-    background: #A0CFFF;
-    color: #3474A8;
+    background: rgb(70, 115, 160);
+    color: rgb(133, 184, 235);
     padding: 16px;
     margin-left: -15px;
     margin-right: -15px;
@@ -52,7 +52,7 @@ footer small a {
 }
 
 #header h3 {
-    margin: 0;
+    margin: 12px;
 }
 
 #resizer {

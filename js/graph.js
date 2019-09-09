@@ -31,7 +31,7 @@ if (tableName === "mobile_data") {
   stmtCount = db.prepare("select count(*) as cnt from mobile_data")
 }
 else {
-  stmtCount = db.prepare("select count(*) as cnt from device_data WHERE node_id='" + tableName)
+  stmtCount = db.prepare("select count(*) as cnt from device_data WHERE node_id='" + tableName + "'")
 }
 
 const totalNumOfData = (stmtCount.all())[0].cnt
@@ -185,6 +185,8 @@ function createChart() {
         panKey: 'shift'
     },
     boost: {
+      seriesThreshold: 2,
+      enabled: true,
       useGPUTranslations: true,
       usePreAllocated: true
     },
@@ -243,7 +245,7 @@ function createChart() {
           count: 1,
           text: 'week'
       }],
-      selected: 1
+      selected: 0
     },
     series: dataPreparedForGraph
   });

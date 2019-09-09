@@ -30,99 +30,110 @@ var tableName = window.process.argv[window.process.argv.length - 1]
 var timestamp_label = []
 setTimeout(function () {
 
+  var offset = 0;
+  var numOfRows = 1000000;
   var stmtData = null
 
-  if (tableName === "mobile_data") {
-    stmtData = db.prepare("SELECT * FROM mobile_data ORDER BY timestamp")
-  }
-  else {
-    stmtData = db.prepare("SELECT * FROM device_data WHERE node_id='" + tableName + "' ORDER BY timestamp")
-  }
+  while(true) {
+    if (tableName === "mobile_data") {
+      stmtData = db.prepare("SELECT * FROM mobile_data ORDER BY timestamp limit " + offset + "," + numOfRows)
+    }
+    else {
+      stmtData = db.prepare("SELECT * FROM device_data WHERE node_id='" + tableName + "' ORDER BY timestamp limit " + offset + "," + numOfRows)
+    }
 
-  const data = stmtData.all();
-  db.close();
+    offset += numOfRows
+
+    const data = stmtData.all();
+
+    if(Object.entries(data).length === 0) {
+      break; // no more data to be read
+    }
 
 
-  const maxNumberOfPointsPerAxis = 1000
-  const threePointInterval = Math.ceil(data.length / maxNumberOfPointsPerAxis);
+    const maxNumberOfPointsPerAxis = 1000
+    const threePointInterval = Math.ceil(data.length / maxNumberOfPointsPerAxis);
 
-  // calculate threePointInterval
+    // calculate threePointInterval
 
-  var dataset = {};
+    var dataset = {};
 
-  var threePointAllSensors = {}
+    var threePointAllSensors = {}
 
-  shouldGatherColumnData = true
+    shouldGatherColumnData = true
 
-  for (var i = 0; i < data.length; i++) {
-      const columnNames = Object.keys(data[i])
-
-      if (shouldGatherColumnData) {
-        for (const name of columnNames) {
-            dataset[name] = []
-            threePointAllSensors[name] = {min: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
-                                          max: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
-                                          med: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
-                                          sum: 0}
-        }
-        shouldGatherColumnData = false;
-      }
-
-      for (const name of columnNames) {
-          threePointAllSensors[name].sum += data[i][name]
-
-          if (data[i][name] > threePointAllSensors[name].max.y) {
-            threePointAllSensors[name].max.y = data[i][name];
-            threePointAllSensors[name].max.x = new Date(data[i]['timestamp']);
-          }
-          else if (data[i][name] < threePointAllSensors[name].min.y) {
-            threePointAllSensors[name].min.y = data[i][name];
-            threePointAllSensors[name].min.x = new Date(data[i]['timestamp']);
-          }
-
-      }
-
-      if (i !== 0 && (i % threePointInterval) === 0) {
-        timestamp_label.push(new Date(data[i]['timestamp']))
-
+    for (var i = 0; i < data.length; i++) {
         const columnNames = Object.keys(data[i])
-        for (const name of columnNames) {
-            threePointAllSensors[name].sum /= threePointInterval
-            var medianValue = {"index": 0, "value": 0}
-            var minDistance = Number.MAX_VALUE
-          
-            for (j = (i - threePointInterval); j <= i; j++) {
-              var distance = Math.abs(threePointAllSensors[name].sum - data[j][name])
-              if (distance < minDistance) {
-                minDistance = distance;
-                medianValue.index = j;
-                medianValue.value = data[j][name]
-              } 
-            }
-          
-            threePointAllSensors[name].med.x = new Date(data[medianValue.index]['timestamp'])
-            threePointAllSensors[name].med.y = medianValue.value
 
-            var tmp = []
-            tmp.push(threePointAllSensors[name].min);
-            tmp.push(threePointAllSensors[name].max);
-            tmp.push(threePointAllSensors[name].med);
-            tmp.sort((a, b) => (a.x > b.x) ? 1 : -1)
-            
-            
-            for (var k = 0; k < tmp.length; k++) {
-              dataset[name].push([tmp[k].x, tmp[k].y])
-            }
-
-            threePointAllSensors[name] = {min: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
-                                          max: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
-                                          med: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
-                                          sum: 0}
+        if (shouldGatherColumnData) {
+          for (const name of columnNames) {
+              dataset[name] = []
+              threePointAllSensors[name] = {min: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
+                                            max: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
+                                            med: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
+                                            sum: 0}
+          }
+          shouldGatherColumnData = false;
         }
-      }
 
-      
+        for (const name of columnNames) {
+            threePointAllSensors[name].sum += data[i][name]
+
+            if (data[i][name] > threePointAllSensors[name].max.y) {
+              threePointAllSensors[name].max.y = data[i][name];
+              threePointAllSensors[name].max.x = new Date(data[i]['timestamp']);
+            }
+            else if (data[i][name] < threePointAllSensors[name].min.y) {
+              threePointAllSensors[name].min.y = data[i][name];
+              threePointAllSensors[name].min.x = new Date(data[i]['timestamp']);
+            }
+
+        }
+
+        if (i !== 0 && (i % threePointInterval) === 0) {
+          timestamp_label.push(new Date(data[i]['timestamp']))
+
+          const columnNames = Object.keys(data[i])
+          for (const name of columnNames) {
+              threePointAllSensors[name].sum /= threePointInterval
+              var medianValue = {"index": 0, "value": 0}
+              var minDistance = Number.MAX_VALUE
+            
+              for (j = (i - threePointInterval); j <= i; j++) {
+                var distance = Math.abs(threePointAllSensors[name].sum - data[j][name])
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  medianValue.index = j;
+                  medianValue.value = data[j][name]
+                } 
+              }
+            
+              threePointAllSensors[name].med.x = new Date(data[medianValue.index]['timestamp'])
+              threePointAllSensors[name].med.y = medianValue.value
+
+              var tmp = []
+              tmp.push(threePointAllSensors[name].min);
+              tmp.push(threePointAllSensors[name].max);
+              tmp.push(threePointAllSensors[name].med);
+              tmp.sort((a, b) => (a.x > b.x) ? 1 : -1)
+              
+              
+              for (var k = 0; k < tmp.length; k++) {
+                dataset[name].push([tmp[k].x, tmp[k].y])
+              }
+
+              threePointAllSensors[name] = {min: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
+                                            max: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
+                                            med: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
+                                            sum: 0}
+          }
+        }
+
+        
+    }
   }
+
+  db.close();
 
   const sensors = Object.keys(dataset)
   for (const sensorDataLabel of sensors) {

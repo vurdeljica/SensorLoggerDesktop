@@ -23,6 +23,7 @@ ipc.on('show-home-page', function(event, arg) {
     $("#output-box").hide();
     $("#success-box").hide();
     $("#bottom-bar").hide();
+    $("#dropzone").show();
     $("#dropzone").delay(50).animate({height: 497}, 500);
     
     databaseTransferInProgress = false
@@ -208,8 +209,10 @@ function dropzoneClick() {
             databaseCheckAndLoad(filePaths[0])
         }
         else if (filePaths !== "undefined" && filePaths.length > 1) {
-            //var path = require('path');
-            //var parentDir = path.dirname(filePaths[0])
+            if(databaseTransferInProgress) {
+                return;
+            }
+
             ipc.send('load-database-from-folder', filePaths)
         }
     });
@@ -469,10 +472,12 @@ function makeDataBoxEditable() {
 }
 
 function showError(msg) {
+    $("#dropzone").hide();
+    $("#output-box").fadeIn();
     $("#data").hide();
     $("#bottom-bar").hide();
-    errorBox.show();
     errorBox.text(msg);
+    errorBox.show();
 }
 
 function transferFromMobileClick() {

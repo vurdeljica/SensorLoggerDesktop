@@ -25,8 +25,21 @@ function setIsLoading(isLoading) {
 
 setIsLoading(true)
 
-var dataPreparedForGraph = []
 var tableName = window.process.argv[window.process.argv.length - 1]
+var stmtCount = null
+if (tableName === "mobile_data") {
+  stmtCount = db.prepare("select count(*) as cnt from mobile_data")
+}
+else {
+  stmtCount = db.prepare("select count(*) as cnt from device_data WHERE node_id='" + tableName)
+}
+
+const totalNumOfData = (stmtCount.all())[0].cnt
+
+const maxNumberOfPointsPerAxis = 5000
+const threePointInterval = Math.ceil(totalNumOfData / maxNumberOfPointsPerAxis);
+
+var dataPreparedForGraph = []
 var timestamp_label = []
 setTimeout(function () {
 
@@ -49,10 +62,6 @@ setTimeout(function () {
     if(Object.entries(data).length === 0) {
       break; // no more data to be read
     }
-
-
-    const maxNumberOfPointsPerAxis = 1000
-    const threePointInterval = Math.ceil(data.length / maxNumberOfPointsPerAxis);
 
     // calculate threePointInterval
 
@@ -135,15 +144,18 @@ setTimeout(function () {
 
   db.close();
 
+  var first = true
   const sensors = Object.keys(dataset)
   for (const sensorDataLabel of sensors) {
       if((sensorDataLabel === "timestamp") || (sensorDataLabel === "node_id")) continue;
       var graphDataEntry = {
           "showInLegend":true,
           "data": dataset[sensorDataLabel],
+          "visible": first,
           "name": sensorDataLabel
       }
 
+      first = false
       dataPreparedForGraph.push(graphDataEntry)
   }
 
@@ -171,6 +183,10 @@ function createChart() {
         zoomType: 'x',
         panning: true,
         panKey: 'shift'
+    },
+    boost: {
+      useGPUTranslations: true,
+      usePreAllocated: true
     },
     title: {
         text: tableName

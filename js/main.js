@@ -446,7 +446,6 @@ function refreshPager(limit) {
 function refreshPagerText(limit) {
     var pager = $("#pager");
     pager.attr("title", "Row count: " + limit.rowCount);
-    pager.tooltip('fixTitle');
     pager.text(limit.currentPage + " / " + limit.pages);
 }
 

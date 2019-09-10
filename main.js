@@ -474,7 +474,7 @@ ipc.on('publish-transfer-service', function(event) {
                         var queryData = url.parse(req.url, true).query;
                         const fileType = Number(queryData.fileType);
 ///////////////////////////////////////////////////////////
-                        if(fileType === 4) {
+                        if(fileType === 2) {
                             res.statusCode = 200;
                             res.setHeader('Content-Type', 'text/plain');
                             res.end('Hello World\n');
@@ -531,7 +531,8 @@ ipc.on('publish-transfer-service', function(event) {
 
 function closeServer() {
     console.log('Server closing...')
-    bonjour.unpublishAll();
+    for (var i = 0; i < 5; i++)
+        bonjour.unpublishAll();
     if (typeof fileTransferServer !== "undefined") {
         fileTransferServer.close(function () { 
             console.log('Server closed!'); });

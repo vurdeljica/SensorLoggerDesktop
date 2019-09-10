@@ -118,6 +118,7 @@ function loadDB(filePath) {
 
     setTimeout(function () {
         try {
+            if (dbManager != null) dbManager.close()
             dbManager = new DBManager(filePath);
         } catch (ex) {
             setIsLoading(false);

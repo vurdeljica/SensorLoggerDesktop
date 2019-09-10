@@ -1,8 +1,5 @@
 const electron = require("electron");
 const ipc = electron.ipcRenderer
-const Chart = require("chart.js")
-const chart_zoom = require("chartjs-plugin-zoom")
-const Dygraph = require("dygraphs")
 
 var Highcharts = require('highcharts/highstock');
 require('highcharts/modules/exporting')(Highcharts);

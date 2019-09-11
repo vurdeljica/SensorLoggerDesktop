@@ -20,6 +20,7 @@ let mainWindow = null;
 let workerWindow = null;
 let loadedDBPath = ""
 var fileTransferServer = undefined, sockets = {}, nextSocketId = 0
+var shouldInterruptTrasnferring = false;
 
 process.on("uncaughtException", (err) => {
     // uncaught Exception will occur when user tries to force quit application while uploading database
@@ -214,8 +215,11 @@ const mainMenuTemplate = [
                 label: 'Home',
                 click() {
                     loadedDBPath = ""
+                    shouldInterruptTrasnferring = true
                     clearDeviceSubmenu();
                     closeServer();
+                    dataRestore.finish();
+                    workerWindow.webContents.send('finishWorker');
                     mainWindow.webContents.send('show-home-page');
                 }
             },
@@ -391,6 +395,7 @@ ipc.on('restoring-done', (event, arg) => {
 })
 
 ipc.on('load-database-from-folder', (event, arg) => {
+    shouldInterruptTrasnferring = false
     numOfTransfeeredFiles = 0
     const files = arg
     totalNumOfFiles = files.length
@@ -400,6 +405,11 @@ ipc.on('load-database-from-folder', (event, arg) => {
     dataRestore.init(true)
 
     for(var i = 0; i < totalNumOfFiles; i++) {
+        if (shouldInterruptTrasnferring) {
+            dataRestore.finish();
+            break;
+        }
+
         const _filePath = files[i]
         var _fileType = 0;
         if(_filePath.indexOf("json") > -1) {
@@ -421,6 +431,10 @@ ipc.on('load-database-from-folder', (event, arg) => {
         const filePath = _filePath
 
         setTimeout(function () {
+            if (shouldInterruptTrasnferring) {
+                return;
+            }
+
             dataRestore.restore(filePath, fileType).then(() => {
             numOfTransfeeredFiles++
 

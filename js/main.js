@@ -512,13 +512,13 @@ ipc.on('database-transfer-error', function(event, arg) {
 })
 
 function updateDatabaseTransferProgress() {
-    if (databaseErrorOccured) return;
+    if (databaseErrorOccured || databaseTransferInProgress == false) return;
 
     ipc.send('get-database-upload-status-percentage')
     $("#drop-loading-message").html("Database uploading(" + databaseUploadProgressPercentage + "%)...")
     setIsLoading(true)
 
-    if (databaseUploadProgressPercentage != 100) {
+    if (databaseTransferInProgress == true && databaseUploadProgressPercentage != 100) {
         setTimeout(updateDatabaseTransferProgress, 1000);
     }
     else {

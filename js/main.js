@@ -205,10 +205,14 @@ function dropzoneClick() {
     const options = {filters: [{name: 'Sqlite', extensions: ['sqlite', 'db', 'txt']}], properties: ['openFile', 'multiSelections']}
     //const options = {}
     dialog.showOpenDialog(null, options, (filePaths) => {
-        if (filePaths !== "undefined" && filePaths.length === 1) {
+        if (filePaths == "undefined") {
+            return;
+        }
+
+        if (filePaths.length === 1) {
             databaseCheckAndLoad(filePaths[0])
         }
-        else if (filePaths !== "undefined" && filePaths.length > 1) {
+        else if (filePaths.length > 1) {
             if(databaseTransferInProgress) {
                 return;
             }

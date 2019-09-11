@@ -443,7 +443,11 @@ ipc.on('load-database-from-folder', (event, arg) => {
                     workerWindow.webContents.send('finishWorker');
                 }
             })
-            .catch(err => mainWindow.webContents.send('show-error', filePath))
+            .catch(err => {
+                dataRestore.finish();
+                workerWindow.webContents.send('finishWorker');
+                mainWindow.webContents.send('show-error', filePath)
+            })
             
         }, i * 50)
     }
@@ -451,6 +455,8 @@ ipc.on('load-database-from-folder', (event, arg) => {
 })
 
 ipc.on('data-restore-error', (event, arg) => {
+    dataRestore.finish();
+    workerWindow.webContents.send('finishWorker');
     mainWindow.webContents.send('show-error', arg);
 })
 

@@ -195,9 +195,11 @@ function allowDrop(e) {
 }
 
 function drop(e) {
-    var file = e.dataTransfer.files[0]
-    console.log(file)
-    databaseCheckAndLoad(file.path)
+    paths = []
+    Object.keys(e.dataTransfer.files).map((objectKey, index) => {
+        paths.push(e.dataTransfer.files[objectKey].path)
+    })
+    loadFiles(paths)
 }
 
 function dropzoneClick() {
@@ -205,22 +207,27 @@ function dropzoneClick() {
     const options = {filters: [{name: 'Sqlite', extensions: ['sqlite', 'db', 'txt']}], properties: ['openFile', 'multiSelections']}
     //const options = {}
     dialog.showOpenDialog(null, options, (filePaths) => {
-        if (filePaths == "undefined") {
-            return;
-        }
-
-        if(databaseTransferInProgress) {
-            return;
-        }
-
-        if (filePaths.length == 1 && isSqliteFileType(filePaths[0])) {
-            databaseCheckAndLoad(filePaths[0])
-        }
-        else {
-            ipc.send('load-database-from-folder', filePaths)
-        }
+        loadFiles(filePaths)
     });
 
+}
+
+function loadFiles(filePaths)
+{
+    if (filePaths == "undefined") {
+        return;
+    }
+
+    if(databaseTransferInProgress) {
+        return;
+    }
+
+    if (filePaths.length == 1 && isSqliteFileType(filePaths[0])) {
+        databaseCheckAndLoad(filePaths[0])
+    }
+    else {
+        ipc.send('load-database-from-folder', filePaths)
+    }
 }
 
 function databaseCheckAndLoad(filePath) {

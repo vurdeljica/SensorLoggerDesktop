@@ -209,14 +209,14 @@ function dropzoneClick() {
             return;
         }
 
-        if (filePaths.length === 1) {
+        if(databaseTransferInProgress) {
+            return;
+        }
+
+        if (filePaths.length == 1 && isSqliteFileType(filePaths[0])) {
             databaseCheckAndLoad(filePaths[0])
         }
-        else if (filePaths.length > 1) {
-            if(databaseTransferInProgress) {
-                return;
-            }
-
+        else {
             ipc.send('load-database-from-folder', filePaths)
         }
     });
@@ -224,10 +224,6 @@ function dropzoneClick() {
 }
 
 function databaseCheckAndLoad(filePath) {
-    if(databaseTransferInProgress) {
-        return;
-    }
-
     if(typeof filePath !== "undefined") {
         if(isSqliteFileType(filePath)) {
             loadDB(filePath)

@@ -32,7 +32,9 @@ exports.restore = function(_filePath, _fileType) {
     }
 }
 exports.finish = function() {
-    dbManager.close()
+    if (dbManager != undefined) {
+        dbManager.close()
+    }
 }
 
 function decompress(filePath, fileType) {

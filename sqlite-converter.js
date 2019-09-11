@@ -99,6 +99,8 @@ class SqliteConverter {
                             }
                         }
 
+                        this.db.close()
+
                         resolve({
                             code : 200,
                             message : "success"
@@ -109,6 +111,7 @@ class SqliteConverter {
             }
             catch(err) {
                 this.writeLog(err);
+                this.db.close()
                 reject(err);
             }
         });

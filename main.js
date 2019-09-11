@@ -434,18 +434,24 @@ ipc.on('load-database-from-folder', (event, arg) => {
             if (shouldInterruptTrasnferring) {
                 return;
             }
-
+            
             dataRestore.restore(filePath, fileType).then(() => {
-            numOfTransfeeredFiles++
+                numOfTransfeeredFiles++
 
-            if (numOfTransfeeredFiles === totalNumOfFiles) {
-                dataRestore.finish();
-                workerWindow.webContents.send('finishWorker');
-            }
-        })
+                if (numOfTransfeeredFiles === totalNumOfFiles) {
+                    dataRestore.finish();
+                    workerWindow.webContents.send('finishWorker');
+                }
+            })
+            .catch(err => mainWindow.webContents.send('show-error', filePath))
+            
         }, i * 50)
     }
     
+})
+
+ipc.on('data-restore-error', (event, arg) => {
+    mainWindow.webContents.send('show-error', arg);
 })
 
 var packetsId = -1

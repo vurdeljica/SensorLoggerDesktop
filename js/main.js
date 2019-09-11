@@ -492,6 +492,10 @@ var databaseUploadProgressPercentage = 0;
 var databaseErrorOccured = false
 var databaseTransferInProgress = false;
 
+ipc.on('show-error', function(event, arg) {
+    showError("Error while parsing file: " + arg);
+})
+
 ipc.on('database-upload-status-percentage', function(event, arg) {
     databaseUploadProgressPercentage = arg
 })

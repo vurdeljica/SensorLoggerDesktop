@@ -17,14 +17,19 @@ exports.restore = function(_filePath, _fileType) {
     const fileType = _fileType
     if (fileType === 0) {
         return new Promise((resolve, reject) => {
-            const data =  fileSystem.readFileSync(filePath, "utf8");
-            var dailyActivitiesJSON = JSON.parse(data);
-            dbManager.insertJSONarray(dailyActivitiesJSON);
+            try {
+                const data =  fileSystem.readFileSync(filePath, "utf8");
+                var dailyActivitiesJSON = JSON.parse(data);
+                dbManager.insertJSONarray(dailyActivitiesJSON);
 
-            resolve({
-                code : 200,
-                message : "Decompression success"
-            })
+                resolve({
+                    code : 200,
+                    message : "Decompression success"
+                })
+            }
+            catch(exception) {
+                reject("Error while using json file")
+            }
         })
     }
     else {
@@ -50,6 +55,9 @@ function decompress(filePath, fileType) {
                     message : "Decompression success"
                 })
             })
+        })
+        .on('error', (err) => {
+            reject("Error while decompressing")
         })
     })
 }
@@ -88,7 +96,8 @@ WMStrm.prototype._write = function (chunk, enc, cb) {
 function deserialize(_fileData, _fileType) {
     const fileData = _fileData
     const fileType = _fileType
-    return new Promise( (resolve, reject) => { 
+    return new Promise( (resolve, reject) => {
+        try {
             var reader = protobuf.Reader.create(fileData);
             var sensorDataBuffer = []
             while(reader.pos < reader.len) {
@@ -115,6 +124,10 @@ function deserialize(_fileData, _fileType) {
                 code : 200,
                 message : "Decompression success"
             })
+        }
+        catch (exception) {
+            reject("Error while deserializing")
+        }
     })
 }
 

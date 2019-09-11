@@ -61,7 +61,7 @@ function makeHiddenWindow() {
         },
         minHeight: 700,
         minWidth: 1100,
-        show: true
+        show: false
     });
 
     workerWindow.loadURL(url.format({
@@ -127,6 +127,7 @@ app.on('ready', function() {
     });
 
     mainWindow.on('close', function() {
+        workerWindow.close()
         emptyAllDirectories()
     });
 

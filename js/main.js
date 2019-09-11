@@ -11,7 +11,6 @@ var dbManager = null;
 var editor = ace.edit("sql-editor");
 var bottomBarDefaultPos = null, bottomBarDisplayStyle = null;
 var errorBox = $("#error");
-//var queryResult = new Object();
 var lastCachedQueryCount = {};
 
 

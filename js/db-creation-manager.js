@@ -1,8 +1,17 @@
 
-
+/**
+ * Class is used only when database is uploading from phone, or when 
+ * it is loaded from binary files from directory. 
+ */
 class DBCreationManager {
     static UPLOADED_DB_PATH = "./data/data.sqlite"
 
+    /**
+     * Class constructor.
+     * 
+     * @param {*} shouldCreate flag which decides whether database tables
+     * will be cleared
+     */
     constructor(shouldCreate) {
         this.db = require('better-sqlite3')(DBCreationManager.UPLOADED_DB_PATH)
 
@@ -13,6 +22,9 @@ class DBCreationManager {
     }
 
 
+    /**
+     * Create tables.
+     */
     createTables() {
         var sqlInit = `
             DROP TABLE IF EXISTS mobile_data;
@@ -51,6 +63,11 @@ class DBCreationManager {
         this.db.exec(sqlInit)
     }
 
+    /**
+     * Add array of object to database in mobile_data table
+     * 
+     * @param {Object[]} mobileSensorDataBuffer Array of mobile sensor objects
+     */
     insertMobileSensorData(mobileSensorDataBuffer) {
         const insert = this.db.prepare('INSERT INTO mobile_data (timestamp, gps_latitude, gps_longitude, gps_altitude)'
                                                                     + ' VALUES (?, ?, ?, ?)')
@@ -63,6 +80,11 @@ class DBCreationManager {
         insertMany(mobileSensorDataBuffer)
     }
 
+    /**
+     * Add array of object to database in sensor_data table
+     * 
+     * @param {Object[]} deviceSensorDataBuffer  Array of device sensor objects
+     */
     insertDeviceSensorData(deviceSensorDataBuffer) {
         const insert = this.db.prepare('INSERT INTO device_data (node_id, timestamp, ' 
                                                                 + 'acc_x, acc_y, acc_z, '
@@ -87,6 +109,11 @@ class DBCreationManager {
         insertMany(deviceSensorDataBuffer)
     }
 
+    /**
+     * Add array of jsson objects to database in daily_activity table
+     * 
+     * @param {Object[]} jsonArray Array of json objects
+     */
     insertJSONarray(jsonArray) {
         const insert = this.db.prepare('INSERT INTO daily_activities (activity_title, activity_type, date, '
                                                                     + 'startTime, endTime, notes)'
@@ -105,6 +132,9 @@ class DBCreationManager {
         insertMany(jsonArray)
     }
 
+    /**
+     * Close connection with database
+     */
     close() {
         this.db.close()
     }

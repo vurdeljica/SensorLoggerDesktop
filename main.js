@@ -33,6 +33,9 @@ process.on("uncaughtException", (err) => {
      console.log(err)
  });
 
+ /**
+  * Create directory structure
+  */
 function initDirectoryStructure() {
     if (!fileSystem.existsSync('./upload')) {
         fileSystem.mkdirSync('./upload')
@@ -45,6 +48,10 @@ function initDirectoryStructure() {
     }
 }
 
+/**
+ * Deletes content of the given directory
+ * @param {String} directoryPath Path to the directory 
+ */
 function emptyDirectory(directoryPath) {
     fileSystem.readdir(directoryPath, (err, files) => {
         if (err) throw err;
@@ -55,6 +62,10 @@ function emptyDirectory(directoryPath) {
     });
 }
 
+/**
+ * Create new windows which is hidden and not used. 
+ * It's renderer thread is used as worker thread.
+ */
 function makeHiddenWindow() {
     workerWindow = new BrowserWindow({
         webPreferences: {
@@ -72,6 +83,10 @@ function makeHiddenWindow() {
     }));
 }
 
+/**
+ * Make windows which is used for graph visualization.
+ * @param {String} windowTitle title of the window
+ */
 function makeGraphdWindow(windowTitle) {
     var graphWindow = new BrowserWindow({
         webPreferences: {
@@ -97,6 +112,9 @@ function makeGraphdWindow(windowTitle) {
 
 }
 
+/**
+ * Empty all directories which are created by application.
+ */
 function emptyAllDirectories() {
     try {
         if (mainWindow != null) {
@@ -112,7 +130,9 @@ function emptyAllDirectories() {
     }
 }
 
-// Listen for app to be ready
+/**
+ * Listen for app to be ready 
+ */ 
 app.on('ready', function() {
     initDirectoryStructure()
     emptyAllDirectories()
@@ -151,7 +171,9 @@ app.on('ready', function() {
     Menu.setApplicationMenu(mainMenu);
 });
 
-// Create menu template
+/**
+ * Create menu template
+ */
 const mainMenuTemplate = [
     {
         label: 'File', 
@@ -263,6 +285,10 @@ const mainMenuTemplate = [
     }
 ];
 
+/**
+ * Add sub menu which consists of node ids of smartwatches.
+ * @param {String[]} deviceList list od node ids of smartwatches.
+ */
 function addDeviceSubMenu(deviceList) {
     deviceSubmenu = []
     for(var i = 0; i < deviceList.length; i++) {
@@ -280,12 +306,20 @@ function addDeviceSubMenu(deviceList) {
     Menu.setApplicationMenu(mainMenu);
 }
 
+/**
+ * Remove sub menu which constist of node ids of smarwatches.
+ */
 function clearDeviceSubmenu() {
     mainMenuTemplate[1].submenu[1].submenu[1].submenu = []
     const mainMenu = Menu.buildFromTemplate(mainMenuTemplate);
     Menu.setApplicationMenu(mainMenu);
 }
 
+/**
+ * Copy file from source to destination.
+ * @param {String} source 
+ * @param {String} destination 
+ */
 function copyFile(source, destination) {
     fileSystem.copyFile(source, destination, (err) => {
         if (err) {
@@ -296,6 +330,10 @@ function copyFile(source, destination) {
 
 var isConversionStarted = false
 
+/**
+ * Convets database from sqlite to exportType
+ * @param {String} exportType exportType can take values: csv or json
+ */
 function exportDatabase(exportType) {
     if (isConversionStarted) {
         notifyUser("Can not start new conversion. Conversion is already in progress!")
@@ -336,6 +374,10 @@ function exportDatabase(exportType) {
     }
 }
 
+/**
+ * Show notification with messageBody to user
+ * @param {String} messageBody Text of the message
+ */
 function notifyUser(messageBody) {
     const notifier = require('node-notifier')
     notifier.notify({
@@ -344,6 +386,11 @@ function notifyUser(messageBody) {
       });
 }
 
+/**
+ * Show notification the converstion is done.
+ * This notification is different from other, because it has 
+ * click callback and it will wait for user action
+ */
 function notifyConversionIsDone() {
     const notifier = require('node-notifier')
     notifier.notify({
@@ -360,18 +407,32 @@ function notifyConversionIsDone() {
 var totalNumOfFiles = 100
 var numOfTransfeeredFiles = 0
 
+/**
+ * Send to main window's renderer process database upload status percentage.
+ */
 ipc.on('get-database-upload-status-percentage', function(event) {
     event.sender.send('database-upload-status-percentage', calculateDatabaseTransferProgress())
 })
 
+/**
+ * Calculate database upload status percentage
+ * @return {Number} return upload status percentage
+ */
 function calculateDatabaseTransferProgress() {
     return Math.floor((numOfTransfeeredFiles/totalNumOfFiles) * 100);
 }
 
+/**
+ * Send path of uploaded database to main window's renderer process
+ */
 ipc.on('get-database-path', (event, arg) => {
     event.returnValue = loadedDBPath
 })
 
+/**
+ * When it receives database path from window's renderer process, 
+ * it will add device submenu
+ */
 ipc.on('database-file-path', (event, arg) => {
     loadedDBPath = arg;
     db = require('better-sqlite3')(loadedDBPath);
@@ -384,6 +445,10 @@ ipc.on('database-file-path', (event, arg) => {
     addDeviceSubMenu(device_id)
 })
 
+/**
+ * This ipc will be called when workerWindow's renderer process
+ * finishes with data restoring of one file
+ */
 ipc.on('restoring-done', (event, arg) => {
     numOfTransfeeredFiles++
 
@@ -394,6 +459,12 @@ ipc.on('restoring-done', (event, arg) => {
     }
 })
 
+/**
+ * Receives command from main window's process to 
+ * start loading database from binary files
+ * 
+ * @param {String[]} arg List of files absolute paths
+ */
 ipc.on('load-database-from-folder', (event, arg) => {
     shouldInterruptTrasnferring = false
     numOfTransfeeredFiles = 0
@@ -454,6 +525,12 @@ ipc.on('load-database-from-folder', (event, arg) => {
     
 })
 
+/**
+ * Message is receives from workerWindows's renderer process
+ * when error is occured while data restoring
+ * 
+ * @param {String} arg Path to the file which can't be restored
+ */
 ipc.on('data-restore-error', (event, arg) => {
     dataRestore.finish();
     workerWindow.webContents.send('finishWorker');
@@ -461,6 +538,11 @@ ipc.on('data-restore-error', (event, arg) => {
 })
 
 var packetsId = -1
+/**
+ * When receives message from mainWindow's renderer process,
+ * it will create server and it start publishing dns-sd multicast
+ * messages
+ */
 ipc.on('publish-transfer-service', function(event) {
     console.log('publish-transfer-service')
 
@@ -556,6 +638,10 @@ ipc.on('publish-transfer-service', function(event) {
     
 })
 
+/**
+ * Close server and stop sending dns-sd multicast
+ * messages. It will force close all existing connections.
+ */
 function closeServer() {
     console.log('Server closing...')
     for (var i = 0; i < 5; i++)
@@ -571,7 +657,14 @@ function closeServer() {
     }
 }
 
-
+/**
+ * Find ipv4 address of wifi interface. This 
+ * is the only function that is os dependant,
+ * because wifi interface has different name on different
+ * operation systems.
+ * 
+ * @return {String} ipv4 address
+ */
 function getLocalWifiIpAddress() {
     var os = require('os');
     var ifaces = os.networkInterfaces();

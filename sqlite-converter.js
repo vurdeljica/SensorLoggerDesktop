@@ -1,4 +1,12 @@
 class SqliteConverter {
+
+    /**
+     * Create SqliteConverter
+     * 
+     * @param {String} filePath path to the database 
+     * @param {String} outputPath path to the destination directory
+     * @param {String} logPath path to the log file
+     */
     constructor(filePath, outputPath, logPath) {
         this.filePath = filePath;
         this.outputPath = outputPath;
@@ -6,29 +14,55 @@ class SqliteConverter {
         this.db = undefined;
     }
 
+    /**
+     * Set file path
+     * 
+     * @param {String} filePath 
+     */
     setFilePath(filePath) {
         this.filePath = filePath;
         return this;
     }
 
+    /**
+     * Set output path
+     * 
+     * @param {String} outputPath 
+     */
     setOutputPath(outputPath) {
         this.outputPath = outputPath;
         return this;
     }
 
+    /**
+     * Set log path
+     * 
+     * @param {*} logPath 
+     */
     setLogPath(logPath) {
         this.logPath = logPath + "/sqliteConvert.log";
         return this;
     }
 
+    /**
+     * Convert database from sqlite to json
+     */
     convertToJson() {
         return this.convert("json")
     }
 
+    /**
+     * Convert database from csv to json
+     */
     convertToCSV() {
         return this.convert("csv")
     }
 
+    /**
+     * Convert database from sqlite to conversionType
+     * 
+     * @param {String} conversionType can be csv or json 
+     */
     convert(conversionType) {
 
         return new Promise( async (resolve, reject) => {
@@ -87,7 +121,7 @@ class SqliteConverter {
                                     }
     
                                     if (conversionType === "csv") {
-                                        this.writeTableToCsv(tableData, rows[i].name + tmp_index + ".csv", outputPath, (offset === 0));
+                                        this.writeTableToCsv(tableData, rows[i].name + tmp_index + ".csv", outputPath);
                                     }
                                     else if (conversionType == "json") {
                                         this.writeTableToJson(tableData, rows[i].name + tmp_index + ".json", outputPath);
@@ -117,6 +151,12 @@ class SqliteConverter {
         });
     }
 
+    /**
+     * 
+     * @param {String} tableName name of the table
+     * @param {Number} offset offset from beginning of the table
+     * @param {Number} numOfRows amount of rows to be read
+     */
     readRowsFromTable(tableName, offset, numOfRows) {
         return new Promise( (resolve, reject) => { 
             let db = this.db;
@@ -132,6 +172,11 @@ class SqliteConverter {
         })
     }
 
+    /**
+     * Return number of rows in table
+     * 
+     * @param {String} tableName 
+     */
     numberOfRowsFromTable(tableName) {
         return new Promise( (resolve, reject) => { 
             let db = this.db;
@@ -146,7 +191,14 @@ class SqliteConverter {
         })
     }
 
-    writeTableToCsv(rows, filePath, outputPath, shouldPrintHeader) {
+    /**
+     * Write rows to the outputPath/filePath
+     * 
+     * @param {Object[]} rows 
+     * @param {String} filePath 
+     * @param {String} outputPath 
+     */
+    writeTableToCsv(rows, filePath, outputPath) {
         return new Promise( async (resolve, reject) => {
             try {
                 let columnNames = ""
@@ -179,6 +231,13 @@ class SqliteConverter {
     
     }
 
+    /**
+     * Write rows to the outputPath/filePath
+     * 
+     * @param {Object[]} rows 
+     * @param {String} filePath 
+     * @param {String} outputPath 
+     */
     writeTableToJson(rows, filePath, outputPath) {
         return new Promise( async (resolve, reject) => {
             try {
@@ -203,6 +262,11 @@ class SqliteConverter {
         });
     }
 
+    /**
+     * Write message to log file.
+     * 
+     * @param {String} message 
+     */
     writeLog(message) {
         try {
             let logPath = this.logPath;
@@ -218,6 +282,12 @@ class SqliteConverter {
         }
     }
 
+    /**
+     * Convert json object to string
+     * 
+     * @param {Object} obj
+     * @return string representation of json object 
+     */
     parseObj(obj) {
         if(typeof obj === "object") {
             return JSON.stringify(obj);

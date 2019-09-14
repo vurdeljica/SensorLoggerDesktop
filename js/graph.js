@@ -7,7 +7,12 @@ require('highcharts/modules/exporting')(Highcharts);
 const databasePath = ipc.sendSync('get-database-path')
 var db = require('better-sqlite3')(databasePath)
 
-
+/**
+ * Toogle graph windows on or off loading state
+ * 
+ * @param {Boolean} isLoading true - set window to loading state
+ * false - turn off loading state
+ */
 function setIsLoading(isLoading) {
   var loading = $("#graph-loading");
   var graph = $("#graph")
@@ -44,6 +49,12 @@ setTimeout(function () {
   var numOfRows = 1000000;
   var stmtData = null
 
+  /**
+   * This loop is essential for graph creation. Number of points can be huge and it must be reduced. 
+   * Data points are separated in intervals and from each interval three dots are taken. Three dots 
+   * represent min, max and median value on the interval. Size of the interval is calculated from 
+   * total number of dots and number of dots that highcharts support.
+   */
   while(true) {
     if (tableName === "mobile_data") {
       stmtData = db.prepare("SELECT * FROM mobile_data ORDER BY timestamp limit " + offset + "," + numOfRows)

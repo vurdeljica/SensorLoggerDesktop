@@ -13,7 +13,10 @@ var bottomBarDefaultPos = null, bottomBarDisplayStyle = null;
 var errorBox = $("#error");
 var lastCachedQueryCount = {};
 
-
+/**
+ * Receives command from browser process to view
+ * the home page
+ */
 ipc.on('show-home-page', function(event, arg) {
     setIsLoading(false);
     $("#drop-loading-message").html("Processing file ...")
@@ -30,22 +33,10 @@ ipc.on('show-home-page', function(event, arg) {
     databaseErrorOccured = false
 })
 
-var fileReaderOpts = {
-    readAsDefault: "ArrayBuffer", on: {
-        beforestart: function (e, file) {
-            loadDB(e.path)
-            return false;
-        }
-    }
-};
-
-var windowResize = function () {
-    positionFooter();
-    var container = $("#main-container");
-    var cleft = container.offset().left + container.outerWidth();
-    $("#bottom-bar").css("left", cleft);
-};
-
+/**
+ * Find position of footer. If window is too small, it will 
+ * change the position of the footer.
+ */
 var positionFooter = function () {
     var footer = $("#bottom-bar");
     var pager = footer.find("#pager");
@@ -74,23 +65,7 @@ var positionFooter = function () {
     }
 };
 
-var toggleFullScreen = function () {
-    var container = $("#main-container");
-    var resizerIcon = $("#resizer i");
-
-    container.toggleClass('container container-fluid');
-    resizerIcon.toggleClass('glyphicon-resize-full glyphicon-resize-small');
-}
-$('#resizer').click(toggleFullScreen);
-
-if (typeof FileReader === "undefined") {
-    $('#dropzone, #dropzone-dialog').hide();
-    $('#compat-error').show();
-} else {
-    //$('#dropzone, #dropzone-dialog').fileReaderJS(fileReaderOpts);
-}
-
-//Initialize editor
+//Initialize sql editor
 editor.setTheme("ace/theme/chrome");
 editor.renderer.setShowGutter(false);
 editor.renderer.setShowPrintMargin(false);
@@ -101,12 +76,14 @@ editor.getSession().setUseWrapMode(true);
 editor.getSession().setMode("ace/mode/sql");
 editor.setOptions({ maxLines: 5 });
 
-//Update pager position
-$(window).resize(windowResize).scroll(positionFooter);
-//windowResize();
 
 $(".no-propagate").on("click", function (el) { el.stopPropagation(); });
 
+/**
+ * Load database from given path
+ * 
+ * @param {String} filePath path to the database that will be loaded
+ */
 function loadDB(filePath) {
     $("#drop-loading-message").html("Processing file ...")
     setIsLoading(true);
@@ -153,6 +130,9 @@ function loadDB(filePath) {
     }, 100);
 }
 
+/**
+ * Set select list to default state
+ */
 function resetTableList() {
     var tables = $("#tables");
     rowCounts = [];
@@ -168,6 +148,11 @@ function resetTableList() {
     });
 }
 
+/**
+ * Add item to select list
+ * 
+ * @param {String} item that will be added to the list
+ */
 var selectFormatter = function (item) {
     var index = item.text.indexOf("(");
     if (index > -1) {
@@ -178,6 +163,12 @@ var selectFormatter = function (item) {
     }
 };
 
+/**
+ * Toogle window on or off loading state
+ * 
+ * @param {Boolean} isLoading true - set window to loading state
+ * false - turn off loading state
+ */
 function setIsLoading(isLoading) {
     var dropText = $("#drop-text");
     var loading = $("#drop-loading");
@@ -194,6 +185,11 @@ function allowDrop(e) {
     e.preventDefault();
 }
 
+/**
+ * 
+ * 
+ * @param {Object[]} e object that are dragged to dropzone 
+ */
 function drop(e) {
     paths = []
     Object.keys(e.dataTransfer.files).map((objectKey, index) => {
@@ -202,16 +198,23 @@ function drop(e) {
     loadFiles(paths)
 }
 
+/**
+ * Callback that is called when it is clicked on dropzone
+ */
 function dropzoneClick() {
-    //$("#dropzone-dialog").click();
     const options = {filters: [{name: 'Sqlite', extensions: ['sqlite', 'db', 'txt']}], properties: ['openFile', 'multiSelections']}
-    //const options = {}
     dialog.showOpenDialog(null, options, (filePaths) => {
         loadFiles(filePaths)
     });
 
 }
 
+/**
+ * Load database from files. Decide if the database is loaded 
+ * from sqlite database or from binary files
+ * 
+ * @param {String[]} filePaths array of paths
+ */
 function loadFiles(filePaths)
 {
     if (filePaths == "undefined") {
@@ -230,6 +233,11 @@ function loadFiles(filePaths)
     }
 }
 
+/**
+ * Check if file is sqlite type and load it or show error
+ * 
+ * @param {String} filePath path to the database
+ */
 function databaseCheckAndLoad(filePath) {
     if(typeof filePath !== "undefined") {
         if(isSqliteFileType(filePath)) {
@@ -241,6 +249,11 @@ function databaseCheckAndLoad(filePath) {
     }
 }
 
+/**
+ * Check if filePath represents sqlite database
+ * 
+ * @param {String} filePath path to the database 
+ */
 function isSqliteFileType(filePath) {
     const readChunk = require('read-chunk');
     const fileType = require('file-type');
@@ -250,6 +263,12 @@ function isSqliteFileType(filePath) {
     return ((typeof fileType(buffer) !== "undefined") && (fileType(buffer).ext === "sqlite"))
 }
 
+/**
+ * When table is selected from list, it will execute 
+ * doDefaultSelect.
+ * 
+ * @param {String} tableName name of the table
+ */
 function doDefaultSelect(tableName) {
     if (tableName === "daily_activities") {
         $("#sql-editor").show()
@@ -265,6 +284,14 @@ function doDefaultSelect(tableName) {
     renderQuery(defaultSelect);
 }
 
+/**
+ * Callback that is called when clicked on next or previouse button.
+ * Set next ot previous page
+ * 
+ * @param {*} el 
+ * @param {Boolean} next if true set next page, 
+ * if false set previous page 
+ */
 function setPage(el, next) {
     var query = editor.getValue();
 
@@ -283,6 +310,11 @@ function setPage(el, next) {
     executeSql();
 }
 
+/**
+ * Parse limit from given query
+ * 
+ * @param {String} query 
+ */
 function parseLimitFromQuery(query) {
         var sqlRegex = SQL_LIMIT_REGEX.exec(query);
         if (sqlRegex != null) {
@@ -315,6 +347,11 @@ function parseLimitFromQuery(query) {
         }
 }
 
+/**
+ * Calculate row count that will query return when executed
+ * 
+ * @param {String} query 
+ */
 function getQueryRowCount(query) {
     if (query === lastCachedQueryCount.select) {
             return lastCachedQueryCount.count;
@@ -337,6 +374,10 @@ function getQueryRowCount(query) {
     }
 }
 
+/**
+ * Executes query in the sql editor. Works only on 
+ * daily activities table
+ */
 function executeQueryForNextPage() {
     var query = editor.getValue();
 
@@ -349,6 +390,9 @@ function executeQueryForNextPage() {
     $("#tables").select2("val", dbManager.getTableNameFromQuery(query));
 }
 
+/**
+ * Executes sql query and render the results
+ */
 function executeSql() {
     var query = editor.getValue();
 
@@ -356,19 +400,18 @@ function executeSql() {
     $("#tables").select2("val", dbManager.getTableNameFromQuery(query));
 }
 
+/**
+ * Render given query
+ * 
+ * @param {String} query 
+ */
 function renderQuery(query) {
     try {
-        console.log(new Date().getTime())
         clearTableData();
-        console.log(new Date().getTime())
         addColumnHeaders(query);
-        console.log(new Date().getTime())
         addRows(query);
-        console.log(new Date().getTime())
         showTableData();
-        console.log(new Date().getTime())
         refreshPagination(query);
-        console.log(new Date().getTime())
 
         makeDataBoxEditable();
         $('[data-toggle="tooltip"]').tooltip({html: true});
@@ -383,6 +426,9 @@ function renderQuery(query) {
     }
 }
 
+/**
+ * Empty data table
+ */
 function clearTableData() {
     var dataBox = $("#data");
     var thead = dataBox.find("thead").find("tr");
@@ -391,6 +437,11 @@ function clearTableData() {
     tbody.empty();
 }
 
+/**
+ * Add column headers to data table
+ * 
+ * @param {String} query 
+ */
 function addColumnHeaders(query) {
     var dataBox = $("#data");
     var thead = dataBox.find("thead").find("tr");
@@ -404,6 +455,11 @@ function addColumnHeaders(query) {
     }
 }
 
+/**
+ * Execute query and add results to data table
+ * 
+ * @param {String} query 
+ */
 function addRows(query) {
     var dataBox = $("#data");
     var tbody = dataBox.find("tbody");
@@ -428,12 +484,20 @@ function htmlEncode(value){
     return $('<div/>').text(value).html();
   }
 
+/**
+ * Make data table visible
+ */
 function showTableData() {
     var dataBox = $("#data");
     errorBox.hide();
     dataBox.show();
 }
 
+/**
+ * Update limit in the pager if needed.
+ * 
+ * @param {String} query 
+ */
 function refreshPagination(query) {
     var limit = parseLimitFromQuery(query);
     if (limit !== null && limit.pages > 0) {
@@ -477,6 +541,11 @@ function makeDataBoxEditable() {
     dataBox.editableTableWidget();
 }
 
+/**
+ * Show error with msg body
+ * 
+ * @param {String} msg 
+ */
 function showError(msg) {
     $("#dropzone").hide();
     $("#output-box").fadeIn();
@@ -486,9 +555,11 @@ function showError(msg) {
     errorBox.show();
 }
 
+/**
+ * Callback that is called when clicked on link 
+ * to transfer from mobile
+ */
 function transferFromMobileClick() {
-    console.log("transferFromMobileClick");
-
     var dropText = $("#drop-loading-message").html("Confirm transfer on mobile phone...")
     setIsLoading(true)
 
@@ -499,25 +570,48 @@ var databaseUploadProgressPercentage = 0;
 var databaseErrorOccured = false
 var databaseTransferInProgress = false;
 
+/**
+ * Receives command from browser process to show an error.
+ * 
+ * @param {String} arg error message
+ */
 ipc.on('show-error', function(event, arg) {
     showError("Error while parsing file: " + arg);
 })
 
+/**
+ * Receives upload status percentage from browser process
+ * 
+ * @param {Number} arg database upload progress percentage
+ */
 ipc.on('database-upload-status-percentage', function(event, arg) {
     databaseUploadProgressPercentage = arg
 })
 
+/**
+ * Receives command from browser process to start updating 
+ * transfer progress
+ */
 ipc.on('database-transfer-started', function(event, arg) {
     databaseTransferInProgress = true
     databaseErrorOccured = false
     setTimeout(updateDatabaseTransferProgress, 1000);
 })
 
+
+/**
+ * Receives command from browser process to start updating 
+ * transfer progress 
+ */
 ipc.on('database-transfer-error', function(event, arg) {
     databaseErrorOccured = true
     $("#drop-loading-message").html("Error occured at " + databaseUploadProgressPercentage + "%. Please go to home page and try again.")
 })
 
+/**
+ * Update database transfer progress and load database if 
+ * progress is 100%
+ */
 function updateDatabaseTransferProgress() {
     if (databaseErrorOccured || databaseTransferInProgress == false) return;
 
@@ -534,6 +628,10 @@ function updateDatabaseTransferProgress() {
     }
 }
 
+/**
+ * Receives command from broser command to free 
+ * reousrces because app is closing
+ */
 ipc.on('app-is-closing', (event, arg) => {
     if (dbManager != null) {
         dbManager.close()

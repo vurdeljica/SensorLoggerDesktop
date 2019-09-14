@@ -8,7 +8,7 @@ const databasePath = ipc.sendSync('get-database-path')
 var db = require('better-sqlite3')(databasePath)
 
 /**
- * Toogle graph windows on or off loading state
+ * Toogle graph window on or off loading state
  * 
  * @param {Boolean} isLoading true - set window to loading state
  * false - turn off loading state

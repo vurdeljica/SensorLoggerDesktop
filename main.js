@@ -346,7 +346,7 @@ function exportDatabase(exportType) {
 
     isConversionStarted = true
 
-    const SqliteConverter  =  require("./sqlite-converter");
+    const SqliteConverter  =  require("./js/sqlite-converter");
     let filePath  =  loadedDBPath;
     let outputPath  =  EXPORT_DIRECTORY;
     let logPath  =  EXPORT_DIRECTORY;

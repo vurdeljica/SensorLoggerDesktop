@@ -142,6 +142,7 @@ app.on('ready', function() {
         webPreferences: {
             nodeIntegration: true
         },
+        icon: path.join(__dirname, '/img/icon.png'),
         minHeight: 700,
         minWidth: 1100,
         show: false

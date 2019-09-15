@@ -382,6 +382,7 @@ function notifyUser(messageBody) {
     const notifier = require('node-notifier')
     notifier.notify({
         title: 'Sensor Logger',
+        icon: path.join(__dirname, '/img/icon.png'),
         message: messageBody
       });
 }
@@ -395,6 +396,7 @@ function notifyConversionIsDone() {
     const notifier = require('node-notifier')
     notifier.notify({
         title: 'Sensor Logger',
+        icon: path.join(__dirname, '/img/icon.png'),
         message: 'Conversion is done!',
         wait: true
       });

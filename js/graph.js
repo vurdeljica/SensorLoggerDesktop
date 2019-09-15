@@ -29,11 +29,11 @@ setIsLoading(true)
 
 var tableName = window.process.argv[window.process.argv.length - 1]
 var stmtCount = null
-if (tableName === "mobile_data") {
-  stmtCount = db.prepare("select count(*) as cnt from mobile_data")
+if (tableName === "location_data") {
+  stmtCount = db.prepare("select count(*) as cnt from location_data")
 }
 else {
-  stmtCount = db.prepare("select count(*) as cnt from device_data WHERE node_id='" + tableName + "'")
+  stmtCount = db.prepare("select count(*) as cnt from sensor_data WHERE node_id='" + tableName + "'")
 }
 
 const totalNumOfData = (stmtCount.all())[0].cnt
@@ -56,11 +56,11 @@ setTimeout(function () {
    * total number of dots and number of dots that highcharts support.
    */
   while(true) {
-    if (tableName === "mobile_data") {
-      stmtData = db.prepare("SELECT * FROM mobile_data ORDER BY timestamp limit " + offset + "," + numOfRows)
+    if (tableName === "location_data") {
+      stmtData = db.prepare("SELECT * FROM location_data ORDER BY timestamp limit " + offset + "," + numOfRows)
     }
     else {
-      stmtData = db.prepare("SELECT * FROM device_data WHERE node_id='" + tableName + "' ORDER BY timestamp limit " + offset + "," + numOfRows)
+      stmtData = db.prepare("SELECT * FROM sensor_data WHERE node_id='" + tableName + "' ORDER BY timestamp limit " + offset + "," + numOfRows)
     }
 
     offset += numOfRows
@@ -224,7 +224,7 @@ function createChart() {
     },
     tooltip: {
         headerFormat: '<b>{series.name}</b><br>',
-        pointFormat: '{point.x:%e. %b}: {point.y:.2f} m'
+        pointFormat: '{point.x:%e. %b}: {point.y:.2f}'
     },
     plotOptions: {
       columnrange: {

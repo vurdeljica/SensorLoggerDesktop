@@ -133,10 +133,10 @@ function deserialize(_fileData, _fileType) {
             while(reader.pos < reader.len) {
                 var sensorData;
                 if (fileType === 1) {
-                    sensorData = require('./sensordata.js').MobileData.decodeDelimited(reader)
+                    sensorData = require('./sensordata.js').LocationData.decodeDelimited(reader)
                 }
                 else if (fileType === 2) {
-                    sensorData = require('./sensordata.js').DeviceData.decodeDelimited(reader)
+                    sensorData = require('./sensordata.js').SensorData.decodeDelimited(reader)
                 }
 
                 sensorData = fixInt64(sensorData)
@@ -144,10 +144,10 @@ function deserialize(_fileData, _fileType) {
             }
 
             if (fileType === 1) {
-                dbManager.insertMobileSensorData(sensorDataBuffer)
+                dbManager.insertLocationData(sensorDataBuffer)
             }
             else if (fileType === 2) {
-                dbManager.insertDeviceSensorData(sensorDataBuffer)
+                dbManager.insertDeviceData(sensorDataBuffer)
             }
 
             resolve({
@@ -156,6 +156,7 @@ function deserialize(_fileData, _fileType) {
             })
         }
         catch (exception) {
+            console.log(exception)
             reject("Error while deserializing")
         }
     })

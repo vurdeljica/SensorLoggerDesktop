@@ -249,17 +249,17 @@ const mainMenuTemplate = [
                 label: 'Visualize data',
                 submenu : [
                     {   
-                        label: "Mobile sensors",
+                        label: "Location data",
                         click() {
                             if (loadedDBPath === "") {
                                 return;
                             }
 
-                            makeGraphdWindow('mobile_data');
+                            makeGraphdWindow('location_data');
                         }
                     },
                     {   
-                        label: "Device sensors",
+                        label: "Sensor data",
                         submenu: []
                     }
                 ]
@@ -437,7 +437,7 @@ ipc.on('database-file-path', (event, arg) => {
     loadedDBPath = arg;
     db = require('better-sqlite3')(loadedDBPath);
     device_id = []
-    node_ids = db.prepare('SELECT node_id FROM device_data GROUP BY node_id').all()
+    node_ids = db.prepare('SELECT node_id FROM sensor_data GROUP BY node_id').all()
     for (i = 0; i < node_ids.length; i++) {
         device_id.push(node_ids[i].node_id)
     }
@@ -486,7 +486,7 @@ ipc.on('load-database-from-folder', (event, arg) => {
         if(_filePath.indexOf("json") > -1) {
             _fileType = 0
         }
-        else if(_filePath.indexOf("mobile") > -1) {
+        else if(_filePath.indexOf("location") > -1) {
             _fileType = 1
         }
         else if(_filePath.indexOf("device") > -1) {

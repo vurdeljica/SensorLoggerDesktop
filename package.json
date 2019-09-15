@@ -10,7 +10,7 @@
     "makeWindowsExe": "electron-packager ./ sensorLogger --asar --overwrite --platform=win32 --arch=x64 --icon=./assets/icon.ico",
     "makeMacExe": "electron-packager ./ sensorLogger --asar --overwrite --platform=darwin --arch=x64 --icon=./img/icon.icns",
     "makeLinuxExe": "electron-packager ./ sensorLogger --asar --overwrite --platform=linux --arch=x64 --icon=./img/icon.png",
-    "makeAll": "npm run makeWindowsExe && npm run makeMacExe"
+    "makeAll": "npm run makeWindowsExe && npm run makeMacExe && npm run makeLinuxExe"
   },
   "repository": {
     "type": "git",

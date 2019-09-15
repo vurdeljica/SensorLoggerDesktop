@@ -133,10 +133,16 @@ setTimeout(function () {
               tmp.push(threePointAllSensors[name].max);
               tmp.push(threePointAllSensors[name].med);
               tmp.sort((a, b) => (a.x > b.x) ? 1 : -1)
+
+              const tmp_filtered = tmp.filter((point,index) => {
+                return index === tmp.findIndex(obj => {
+                  return JSON.stringify(obj) === JSON.stringify(point);
+                });
+              });
               
               
-              for (var k = 0; k < tmp.length; k++) {
-                dataset[name].push([tmp[k].x, tmp[k].y])
+              for (var k = 0; k < tmp_filtered.length; k++) {
+                dataset[name].push([tmp_filtered[k].x, tmp_filtered[k].y])
               }
 
               threePointAllSensors[name] = {min: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 

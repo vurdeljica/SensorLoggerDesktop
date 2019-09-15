@@ -566,12 +566,12 @@ ipc.on('publish-transfer-service', function(event) {
                         packetsId = fields['id']
                         numOfTransfeeredFiles = 0
                         console.log(totalNumOfFiles)
-                        res.statusCode = 200;
-                        res.setHeader('Content-Type', 'text/plain');
-                        res.end('Hello World\n');
                         mainWindow.webContents.send('database-transfer-started');
                         dataRestore.init(true)
                         workerWindow.webContents.send('initWorker');
+                        res.statusCode = 200;
+                        res.setHeader('Content-Type', 'text/plain');
+                        res.end('Hello World\n');
                     } else if (!files.file) {
                         console.log('no file received')
                     } else {

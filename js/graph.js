@@ -49,6 +49,8 @@ setTimeout(function () {
   var numOfRows = 1000000;
   var stmtData = null
 
+  var firstReading = true
+
   /**
    * This loop is essential for graph creation. Number of points can be huge and it must be reduced. 
    * Data points are separated in intervals and from each interval three dots are taken. Three dots 
@@ -75,12 +77,19 @@ setTimeout(function () {
 
     var dataset = {};
 
+    var lastIntervalPosition = 0;
+
     var threePointAllSensors = {}
 
     shouldGatherColumnData = true
 
     for (var i = 0; i < data.length; i++) {
         const columnNames = Object.keys(data[i])
+
+        if (firstReading) {
+          timestamp_label.push(new Date(data[i]['timestamp']))
+          firstReading = false
+        }
 
         if (shouldGatherColumnData) {
           for (const name of columnNames) {
@@ -107,16 +116,19 @@ setTimeout(function () {
 
         }
 
-        if (i !== 0 && (i % threePointInterval) === 0) {
+        if ((i !== 0 && (i % threePointInterval) === 0) || (i == data.length - 1)) {
           timestamp_label.push(new Date(data[i]['timestamp']))
+
+          var interval = (i == data.length - 1 ? data.length - lastIntervalPosition : threePointInterval)
+          lastIntervalPosition = i
 
           const columnNames = Object.keys(data[i])
           for (const name of columnNames) {
-              threePointAllSensors[name].sum /= threePointInterval
+              threePointAllSensors[name].sum /= interval
               var medianValue = {"index": 0, "value": 0}
               var minDistance = Number.MAX_VALUE
             
-              for (j = (i - threePointInterval); j <= i; j++) {
+              for (j = (i - interval); j <= i; j++) {
                 var distance = Math.abs(threePointAllSensors[name].sum - data[j][name])
                 if (distance < minDistance) {
                   minDistance = distance;

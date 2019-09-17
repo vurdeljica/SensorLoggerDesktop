@@ -28,6 +28,17 @@ exports.init = function(shouldCreate) {
 exports.restore = function(_filePath, _fileType) {
     const filePath = _filePath;
     const fileType = _fileType
+
+    if (dbManager.isNotDatabaseOpen())
+    {
+        return new Promise((resolve, reject) => { 
+            resolve({
+                code : 200,
+                message : "Data recovery database not open. Success."
+            })
+        })
+    }
+
     if (fileType === 0) {
         return new Promise((resolve, reject) => {
             try {
@@ -78,6 +89,8 @@ function decompress(filePath, fileType) {
                     code : 200,
                     message : "Decompression success"
                 })
+            }).catch((err) => {
+                reject("Error while deserializing")
             })
         })
         .on('error', (err) => {
@@ -157,6 +170,14 @@ function deserialize(_fileData, _fileType) {
         }
         catch (exception) {
             console.log(exception)
+            if (dbManager.isNotDatabaseOpen())
+            {
+                resolve({
+                    code : 200,
+                    message : "Decompression: database not open. Success."
+                })
+            }
+
             reject("Error while deserializing")
         }
     })

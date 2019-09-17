@@ -635,6 +635,7 @@ ipc.on('publish-transfer-service', function(event) {
         txtRecord = {'ip' : getLocalWifiIpAddress()}
         
         const hostname = require("os").hostname()  + ".local."
+        const name = "SensorLoggerFileTransfer" + require("os").hostname()
         const name = "SensorLoggerFileTransfer"
         bonjour.publish({ name: name, type: 'hap', port: freePort, host: hostname, txt: txtRecord })
     });

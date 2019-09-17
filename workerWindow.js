@@ -22,7 +22,7 @@ ipc.on('restore', function(event, arg) {
     dataRestore.restore(fileName, fileType).then(() => {
             ipc.send('restoring-done')
         })
-        .catch(err => ipc.send('data-restore-error', fileName))
+        .catch((err) => ipc.send('data-restore-error', fileName))
     })
 
 

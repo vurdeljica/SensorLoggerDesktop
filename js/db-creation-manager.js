@@ -48,7 +48,7 @@ class DBCreationManager {
                 acc_z REAL,
                 gyr_x REAL,
                 gyr_y REAL,
-                gyr_Z REAL,
+                gyr_z REAL,
                 mag_x REAL,
                 mag_y REAL,
                 mag_z REAL
@@ -143,6 +143,10 @@ class DBCreationManager {
      */
     close() {
         this.db.close()
+    }
+
+    isNotDatabaseOpen() {
+        return (this.db.open == false)
     }
 }
 

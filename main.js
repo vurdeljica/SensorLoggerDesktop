@@ -496,8 +496,8 @@ ipc.on('load-database-from-folder', (event, arg) => {
             _fileType = 2
         }
 
-        //if(i % 2 === 1) {
-        if(_fileType === 2) {
+        if(i % 2 == 1) {
+        //if(_fileType === 2) {
             workerWindow.webContents.send('restore', [_filePath, _fileType]);
             continue;
         }
@@ -586,7 +586,8 @@ ipc.on('publish-transfer-service', function(event) {
                         var queryData = url.parse(req.url, true).query;
                         const fileType = Number(queryData.fileType);
 ///////////////////////////////////////////////////////////
-                        if(fileType === 2) {
+                        if(numOfTransfeeredFiles % 2 == 1) {
+                        //if(fileType === 2) {
                             res.statusCode = 200;
                             res.setHeader('Content-Type', 'text/plain');
                             res.end('Hello World\n');

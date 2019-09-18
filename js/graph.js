@@ -87,39 +87,26 @@ setTimeout(function () {
         const columnNames = Object.keys(data[i])
 
         if (firstReading) {
-          timestamp_label.push(new Date(data[i]['timestamp']))
+          timestamp_label.push(data[i]['timestamp'])
           firstReading = false
         }
 
         if (shouldGatherColumnData) {
           for (const name of columnNames) {
               dataset[name] = []
-              threePointAllSensors[name] = {min: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
-                                            max: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
-                                            med: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
+              threePointAllSensors[name] = {min: { x: data[i]['timestamp'], y: data[i][name] }, 
+                                            max: { x: data[i]['timestamp'], y: data[i][name] }, 
+                                            med: { x: data[i]['timestamp'], y: data[i][name] }, 
                                             sum: 0}
           }
           shouldGatherColumnData = false;
         }
 
-        for (const name of columnNames) {
-            threePointAllSensors[name].sum += data[i][name]
-
-            if (data[i][name] > threePointAllSensors[name].max.y) {
-              threePointAllSensors[name].max.y = data[i][name];
-              threePointAllSensors[name].max.x = new Date(data[i]['timestamp']);
-            }
-            else if (data[i][name] < threePointAllSensors[name].min.y) {
-              threePointAllSensors[name].min.y = data[i][name];
-              threePointAllSensors[name].min.x = new Date(data[i]['timestamp']);
-            }
-
-        }
-
         if ((i !== 0 && (i % threePointInterval) === 0) || (i == data.length - 1)) {
-          timestamp_label.push(new Date(data[i]['timestamp']))
+          timestamp_label.push(data[i]['timestamp'])
 
           var interval = (i == data.length - 1 ? data.length - lastIntervalPosition : threePointInterval)
+          var lastIndex = (i == data.length - 1 ? i + 1 : i)
           lastIntervalPosition = i
 
           const columnNames = Object.keys(data[i])
@@ -128,7 +115,7 @@ setTimeout(function () {
               var medianValue = {"index": 0, "value": 0}
               var minDistance = Number.MAX_VALUE
             
-              for (j = (i - interval); j <= i; j++) {
+              for (j = (i - interval); j < lastIndex; j++) {
                 var distance = Math.abs(threePointAllSensors[name].sum - data[j][name])
                 if (distance < minDistance) {
                   minDistance = distance;
@@ -137,7 +124,7 @@ setTimeout(function () {
                 } 
               }
             
-              threePointAllSensors[name].med.x = new Date(data[medianValue.index]['timestamp'])
+              threePointAllSensors[name].med.x = data[medianValue.index]['timestamp']
               threePointAllSensors[name].med.y = medianValue.value
 
               var tmp = []
@@ -147,7 +134,7 @@ setTimeout(function () {
               tmp.sort((a, b) => (a.x > b.x) ? 1 : -1)
 
               const tmp_filtered = tmp.filter((point,index) => {
-                return index === tmp.findIndex(obj => {
+                return index == tmp.findIndex(obj => {
                   return JSON.stringify(obj) === JSON.stringify(point);
                 });
               });
@@ -157,13 +144,26 @@ setTimeout(function () {
                 dataset[name].push([tmp_filtered[k].x, tmp_filtered[k].y])
               }
 
-              threePointAllSensors[name] = {min: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
-                                            max: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
-                                            med: { x: new Date(data[i]['timestamp']), y: data[i][name] }, 
+              threePointAllSensors[name] = {min: { x: data[i]['timestamp'], y: data[i][name] }, 
+                                            max: { x: data[i]['timestamp'], y: data[i][name] }, 
+                                            med: { x: data[i]['timestamp'], y: data[i][name] }, 
                                             sum: 0}
           }
         }
 
+        for (const name of columnNames) {
+          threePointAllSensors[name].sum += data[i][name]
+
+          if (data[i][name] > threePointAllSensors[name].max.y) {
+            threePointAllSensors[name].max.y = data[i][name];
+            threePointAllSensors[name].max.x = data[i]['timestamp'];
+          }
+          if (data[i][name] < threePointAllSensors[name].min.y) {
+            threePointAllSensors[name].min.y = data[i][name];
+            threePointAllSensors[name].min.x = data[i]['timestamp'];
+          }
+
+      }
         
     }
   }
@@ -231,8 +231,8 @@ function createChart() {
         title: {
             text: 'Date'
         },
-        min: timestamp_label[0].getTime(),
-        max: timestamp_label[timestamp_label.length - 1].getTime(),
+        min: timestamp_label[0],
+        max: timestamp_label[timestamp_label.length - 1],
         minRange: 3600
     },
     yAxis: {

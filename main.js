@@ -267,9 +267,6 @@ const mainMenuTemplate = [
             },
             {
                 role: 'togglefullscreen'
-            },
-            {
-                role: 'toggledevtools'
             }
         ]
     },

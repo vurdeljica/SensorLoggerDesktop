@@ -51,6 +51,12 @@ setTimeout(function () {
 
   var firstReading = true
 
+  var dataset = {};
+
+  var threePointAllSensors = {}
+
+  var shouldGatherColumnData = true
+
   /**
    * This loop is essential for graph creation. Number of points can be huge and it must be reduced. 
    * Data points are separated in intervals and from each interval three dots are taken. Three dots 
@@ -75,13 +81,7 @@ setTimeout(function () {
 
     // calculate threePointInterval
 
-    var dataset = {};
-
     var lastIntervalPosition = 0;
-
-    var threePointAllSensors = {}
-
-    shouldGatherColumnData = true
 
     for (var i = 0; i < data.length; i++) {
         const columnNames = Object.keys(data[i])
